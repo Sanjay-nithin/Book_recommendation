@@ -1,82 +1,50 @@
 from rest_framework import serializers
-from django.contrib.auth import authenticate
 from .models import *
 
-class RegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True)
-
-    class Meta:
-        model = User
-        fields = (
-            "first_name", "last_name", "email", "favorite_genres",
-            "saved_book_ids", "password"
-        )
-
-    def create(self, validated_data):
-        password = validated_data.pop("password")
-        user = User.objects.create_user(password=password, **validated_data)
-        return user
-
-
-class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField()
-    def validate(self, data):
-        user = authenticate(email=data["email"], password=data["password"])
-        if user:
-            return user
-        raise serializers.ValidationError("Invalid credentials")
-
-
-class UserSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = User
-        fields = [
-            "id", "first_name", "last_name", "email",
-            "favorite_genres", "saved_book_ids",
-            "is_superuser", "created_at", "updated_at"
-        ]
-        read_only_fields = ["id", "is_superuser", "created_at", "updated_at"]
-
-# serializers.py
-from rest_framework import serializers
-from .models import Book
-
 class BookSerializer(serializers.ModelSerializer):
-    genres = serializers.ListField(
-        child=serializers.CharField(),
-        required=False,
-        allow_empty=True
-    )
+    genres = serializers.ListField(child=serializers.CharField())
 
     class Meta:
         model = Book
+        fields = "__all__"
+
+class GenreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Genre
+        fields = ["id", "name"]
+
+class UserDetailSerializer(serializers.ModelSerializer):
+    saved_books = serializers.SerializerMethodField()
+    favorite_genres = GenreSerializer(many=True, read_only=True)  # use GenreSerializer
+
+    class Meta:
+        model = User
         fields = [
-            'id',
-            'title',
-            'author',
-            'isbn',
-            'description',
-            'cover_image',
-            'publish_date',
-            'rating',
-            'liked_percentage',
-            'genres',
-            'language',
-            'page_count',
-            'publisher',
-            'created_at',
-            'updated_at',
+            "id",
+            "first_name",
+            "last_name",
+            "username",
+            "email",
+            "is_admin",
+            "favorite_genres",    # now returns [{"id": 1, "name": "Fantasy"}, ...]
+            "preferred_language",
+            "saved_books",
+            "created_at",
+            "updated_at"
         ]
 
-    def to_representation(self, instance):
-        """Convert comma-separated genres to a list for API response"""
-        ret = super().to_representation(instance)
-        ret['genres'] = instance.genres.split(',') if instance.genres else []
-        return ret
+    def get_saved_books(self, obj):
+        return list(obj.saved_books.values_list("id", flat=True))
 
-    def to_internal_value(self, data):
-        """Convert genres list from frontend back to comma-separated string"""
-        if 'genres' in data and isinstance(data['genres'], list):
-            data['genres'] = ','.join(data['genres'])
-        return super().to_internal_value(data)
+class UserGenrePreferenceSerializer(serializers.Serializer):
+    genres = serializers.ListField(
+        child=serializers.CharField(),  # expecting a list of genre names or IDs
+        allow_empty=False
+    )
+
+    def update(self, instance, validated_data):
+        genre_names = validated_data.get("genres", [])
+        genres = Genre.objects.filter(name__in=genre_names)  # lookup by name
+        instance.favorite_genres.set(genres)
+        instance.save()
+        return instance

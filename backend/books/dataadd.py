@@ -1,6 +1,6 @@
 import pandas as pd
-from datetime import datetime
 from books.models import Book
+import ast
 
 # Load dataset
 df = pd.read_csv("../archive/books_data/FinalBooks.csv")
@@ -24,6 +24,22 @@ for _, row in df.iterrows():
             except Exception:
                 page_count = None
 
+        # Safely parse genres → always Python list
+        genres = []
+        if pd.notna(row['genres']):
+            val = row['genres']
+            if isinstance(val, str):
+                try:
+                    parsed = ast.literal_eval(val)
+                    if isinstance(parsed, list):
+                        genres = parsed
+                    else:
+                        genres = [parsed]
+                except Exception:
+                    genres = [val]  # fallback: wrap as single string
+            elif isinstance(val, list):
+                genres = val
+
         # Insert or update (avoid duplicates by ISBN)
         Book.objects.update_or_create(
             isbn=row['isbn'],
@@ -35,7 +51,7 @@ for _, row in df.iterrows():
                 "publish_date": publish_date,
                 "rating": row['rating'],
                 "liked_percentage": row['likedPercent'],
-                "genres": row['genres'],
+                "genres": genres,  # ✅ guaranteed list
                 "language": row['language'],
                 "page_count": page_count,
                 "publisher": row['publisher'],
