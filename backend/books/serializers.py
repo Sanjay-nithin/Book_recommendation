@@ -26,6 +26,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "username",
             "email",
             "is_admin",
+            "is_superuser",
             "favorite_genres",    # now returns [{"id": 1, "name": "Fantasy"}, ...]
             "preferred_language",
             "saved_books",
@@ -48,3 +49,10 @@ class UserGenrePreferenceSerializer(serializers.Serializer):
         instance.favorite_genres.set(genres)
         instance.save()
         return instance
+
+class DashboardStatsSerializer(serializers.Serializer):
+    total_books = serializers.IntegerField()
+    total_users = serializers.IntegerField()
+    most_popular_genres = serializers.ListField(child=serializers.CharField())
+    recent_searches = serializers.ListField(child=serializers.CharField())
+    top_rated_books = BookSerializer(many=True, source='top_rated_books')

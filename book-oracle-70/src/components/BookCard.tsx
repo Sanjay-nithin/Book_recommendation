@@ -39,7 +39,7 @@ const BookCard = ({ book, showSaveButton = true, onSaveToggle }: BookCardProps) 
       if ('error' in res) {
         toast({ title: 'Error', description: res.error, variant: 'destructive' });
       } else {
-        await apiService.updateCurrentUser(); // Update localStorage with fresh user data
+        await apiService.updateCurrentUser();
         setIsSaved(!isBookSaved);
         if (onSaveToggle) onSaveToggle();
         toast({
@@ -55,15 +55,17 @@ const BookCard = ({ book, showSaveButton = true, onSaveToggle }: BookCardProps) 
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short' 
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
     });
   };
 
   return (
-    <Card className="group overflow-hidden hover:shadow-book-hover transition-all duration-300 hover:-translate-y-1 bg-card">
-      <Link to={`/books/${book.id}`} className="block">
+    <Card className="group overflow-hidden hover:shadow-book-hover transition-all duration-300 hover:-translate-y-1 bg-card 
+      w-90 h-[500px] flex flex-col">
+      <Link to={`/books/${book.id}`} className="flex flex-col h-full">
+        {/* Cover Image */}
         <div className="aspect-[3/4] relative overflow-hidden bg-muted">
           <img
             src={book.cover_image}
@@ -72,8 +74,8 @@ const BookCard = ({ book, showSaveButton = true, onSaveToggle }: BookCardProps) 
             loading="lazy"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-          
-          {/* Save Button Overlay */}
+
+          {/* Save Button */}
           {showSaveButton && currentUser && (
             <Button
               variant="ghost"
@@ -97,16 +99,17 @@ const BookCard = ({ book, showSaveButton = true, onSaveToggle }: BookCardProps) 
           </div>
         </div>
 
-        <CardContent className="p-4 space-y-3">
+        {/* Content */}
+        <CardContent className="p-4 flex flex-col justify-between flex-1">
           <div className="space-y-2">
             <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">
               {book.title}
             </h3>
-            <p className="text-sm text-muted-foreground">{book.author}</p>
+            <p className="text-sm text-muted-foreground truncate">{book.author}</p>
           </div>
 
           {/* Genres */}
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mt-2">
             {book.genres.slice(0, 2).map((genre) => (
               <Badge key={genre} variant="outline" className="text-xs">
                 {genre}
@@ -119,8 +122,8 @@ const BookCard = ({ book, showSaveButton = true, onSaveToggle }: BookCardProps) 
             )}
           </div>
 
-          {/* Book Stats */}
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          {/* Stats */}
+          <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-1">
                 <Calendar className="h-3 w-3" />
@@ -131,15 +134,15 @@ const BookCard = ({ book, showSaveButton = true, onSaveToggle }: BookCardProps) 
                 <span>{book.page_count}p</span>
               </div>
             </div>
-            
+
             <div className="flex items-center space-x-1">
               <Heart className="h-3 w-3" />
               <span>{book.liked_percentage}%</span>
             </div>
           </div>
 
-          {/* Description Preview */}
-          <p className="text-sm text-muted-foreground line-clamp-2">
+          {/* Description */}
+          <p className="text-sm text-muted-foreground line-clamp-3 mt-2">
             {book.description}
           </p>
         </CardContent>

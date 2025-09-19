@@ -37,7 +37,7 @@ const LoginForm = () => {
         description: `Hello ${user.first_name}, you're successfully logged in.`,
       });
 
-      if (!user.profile?.favorite_genres?.length) {
+      if (!user.favorite_genres?.length && !user.is_admin) {
         navigate('/preferences');
         return;
       }

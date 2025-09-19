@@ -68,8 +68,8 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* Search Bar */}
-          {isAuthenticated && (
+          {/* Search Bar - Hide for Admin Users */}
+          {isAuthenticated && currentUser && !currentUser.is_admin && (
             <div className="hidden lg:block flex-1 max-w-md mx-8">
               <form onSubmit={handleSearch}>
                 <div className="relative">
@@ -152,21 +152,6 @@ const Navbar = () => {
         {/* Mobile Menu */}
         {isMenuOpen && (
           <div className="md:hidden py-4 space-y-4 animate-fade-in">
-            {/* Mobile Search */}
-            {isAuthenticated && (
-              <form onSubmit={handleSearch} className="px-2">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search books, authors..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </form>
-            )}
 
             {/* Mobile Navigation Links */}
             <div className="space-y-2">

@@ -70,6 +70,8 @@ export interface BookSearchResponse {
 export interface DashboardStats {
   total_books: number;
   total_users: number;
+  books_added_today: number;
+  avg_rating: number;
   most_popular_genres: string[]; // simple strings
   recent_searches: string[];
   top_rated_books: Book[];

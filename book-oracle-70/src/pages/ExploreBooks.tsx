@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, ChevronDown, BookOpen } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ArrowLeft, ChevronDown, BookOpen, Filter, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import BookCard from '@/components/BookCard';
 import { apiService } from '@/services/services.api';
@@ -23,10 +26,30 @@ const ExploreBooks = () => {
 
   const BOOKS_PER_PAGE = 10;
 
+  const [localFilters, setLocalFilters] = useState({
+    author: '',
+    isbn: '',
+    genre: '',
+    published_year: '',
+    publisher: '',
+    language: ''
+  });
+
+  const [appliedFilters, setAppliedFilters] = useState({
+    author: '',
+    isbn: '',
+    genre: '',
+    published_year: '',
+    publisher: '',
+    language: ''
+  });
+
+  const [showFilters, setShowFilters] = useState(false);
+
   useEffect(() => {
     loadUserData();
-    loadInitialBooks();
-  }, []);
+    loadBooks({ offset: 0, limit: BOOKS_PER_PAGE, ...appliedFilters });
+  }, [appliedFilters]);
 
   const loadUserData = async () => {
     try {
@@ -37,40 +60,33 @@ const ExploreBooks = () => {
     }
   };
 
-  const loadInitialBooks = async () => {
-    setIsLoading(true);
+  const loadBooks = async (params: any, append = false) => {
+    if (!append) setIsLoading(true);
+    if (append) setIsLoadingMore(true);
     try {
-      const response = await apiService.exploreBooks({ offset: 0, limit: BOOKS_PER_PAGE });
+      const response = await apiService.exploreBooks(params);
       if (response.ok && response.data) {
         const data: ExploreResponse = response.data;
-        setBooks(data.books);
+        setBooks(append ? [...books, ...data.books] : data.books);
         setHasMore(data.has_more);
-        setOffset(BOOKS_PER_PAGE);
+        setOffset(params.offset + params.limit);
       }
     } catch (error) {
       console.error('Failed to load books:', error);
     } finally {
-      setIsLoading(false);
+      if (!append) setIsLoading(false);
+      if (append) setIsLoadingMore(false);
     }
   };
 
   const loadMoreBooks = async () => {
     if (!hasMore || isLoadingMore) return;
+    const params = { offset, limit: BOOKS_PER_PAGE, ...appliedFilters };
+    await loadBooks(params, true);
+  };
 
-    setIsLoadingMore(true);
-    try {
-      const response = await apiService.exploreBooks({ offset, limit: BOOKS_PER_PAGE });
-      if (response.ok && response.data) {
-        const data: ExploreResponse = response.data;
-        setBooks(prevBooks => [...prevBooks, ...data.books]);
-        setHasMore(data.has_more);
-        setOffset(prevOffset => prevOffset + BOOKS_PER_PAGE);
-      }
-    } catch (error) {
-      console.error('Failed to load more books:', error);
-    } finally {
-      setIsLoadingMore(false);
-    }
+  const applyFilters = () => {
+    setAppliedFilters(localFilters);
   };
 
   const refreshUserData = async () => {
@@ -119,6 +135,7 @@ const ExploreBooks = () => {
             </p>
           </div>
         </div>
+
 
         {/* Books Grid */}
         <div className="space-y-8">

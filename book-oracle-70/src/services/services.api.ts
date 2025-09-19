@@ -169,6 +169,44 @@ export const apiService = {
     return authFetch(`${API_BASE}/books/explore/${queryString}`);
   },
 
+  // Admin endpoints
+  async getAllUsers() {
+    return authFetch(`${API_BASE}/admin/users/`);
+  },
+
+  async deleteUser(userId: number) {
+    return authFetch(`${API_BASE}/admin/users/${userId}/delete/`, { method: "DELETE" });
+  },
+
+  async getAllBooksAdmin(params?: { q?: string; offset?: number; limit?: number }) {
+    const { q, offset = 0, limit = 10 } = params || {};
+    let url = `${API_BASE}/admin/books/?offset=${offset}&limit=${limit}`;
+    if (q) {
+      url += `&q=${encodeURIComponent(q)}`;
+    }
+    return authFetch(url);
+  },
+
+  async addBookAdmin(bookData: any) {
+    return authFetch(`${API_BASE}/books/add/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bookData),
+    });
+  },
+
+  async editBookAdmin(bookId: number, bookData: any) {
+    return authFetch(`${API_BASE}/books/${bookId}/edit/`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(bookData),
+    });
+  },
+
+  async deleteBookAdmin(bookId: number) {
+    return authFetch(`${API_BASE}/books/${bookId}/delete/`, { method: "DELETE" });
+  },
+
   async updateCurrentUser() {
     const result = await this.getCurrentUserDetails();
     if (result.ok && result.data) {

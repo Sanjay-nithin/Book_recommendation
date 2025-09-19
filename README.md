@@ -129,6 +129,13 @@ cd book-oracle-70
 npm run dev
 ```
 
+## Creating Admin User
+### In Backend Terminal (Book_Recommendation\backend)
+```bash
+python manage.py createsuperuser
+```
+Then fill the details that you are prompted for and sign in using the email and password you have given to create a superuser and
+
 ## 📊 API Endpoints
 
 | Method | Endpoint | Description |
@@ -158,55 +165,6 @@ npm run dev
 - **Book**: Comprehensive book model with metadata
 - **Genre**: Book categorization system
 
-## 🔧 Development Commands
-
-### Backend
-```bash
-# Create superuser
-python manage.py createsuperuser
-
-# Run tests
-python manage.py test
-
-# Collect static files
-python manage.py collectstatic
-
-# Django shell
-python manage.py shell
-```
-
-### Frontend
-```bash
-# Lint code
-npm run lint
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Development build
-npm run build:dev
-```
-
-## 📝 Environment Variables
-
-Create `.env` files in respective directories:
-
-### Backend (`.env`)
-```
-DEBUG=True
-SECRET_KEY=your-secret-key
-DATABASE_URL=postgresql://user:pass@localhost:5432/db
-ALLOWED_HOSTS=localhost,127.0.0.1
-```
-
-### Frontend (`.env`)
-```
-VITE_API_URL=http://127.0.0.1:8000/api
-VITE_APP_TITLE=Book Oracle
-```
 
 ## 🗄️ Database Schema
 
@@ -233,29 +191,6 @@ VITE_APP_TITLE=Book Oracle
 - **Icons**: Lucide React icons
 - **Forms**: React Hook Form with Zod validation
 - **Routing**: React Router with protected routes
-
-## 🚀 Deployment
-
-### Backend (Django)
-1. Configure production database (PostgreSQL)
-2. Set `DEBUG=False`
-3. Configure static files and media
-4. Set up reverse proxy (Nginx)
-5. Use Gunicorn/uvicorn for WSGI
-
-### Frontend (React)
-```bash
-npm run build
-# Serve build files with any static server
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit changes
-4. Push to branch
-5. Create a Pull Request
 
 ## 📄 License
 
