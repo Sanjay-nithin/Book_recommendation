@@ -132,23 +132,6 @@ const LoginForm = () => {
                 )}
               </Button>
             </form>
-
-            <div className="mt-6 text-center space-y-4">
-              <div className="text-sm text-muted-foreground">
-                Demo accounts:
-              </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2 bg-muted/50 rounded">
-                  <div className="font-medium">Admin</div>
-                  <div>admin@bookwise.com</div>
-                  <div>admin123</div>
-                </div>
-                <div className="p-2 bg-muted/50 rounded">
-                  <div className="font-medium">User</div>
-                  <div>user@bookwise.com</div>
-                  <div>user123</div>
-                </div>
-              </div>
               
               <div className="pt-4 border-t">
                 <p className="text-sm text-muted-foreground">
@@ -161,7 +144,6 @@ const LoginForm = () => {
                   </Link>
                 </p>
               </div>
-            </div>
           </CardContent>
         </Card>
       </div>
