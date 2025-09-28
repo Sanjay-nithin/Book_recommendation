@@ -72,7 +72,11 @@ class Book(models.Model):
     genres = models.JSONField(default=list)    
     language = models.CharField(max_length=50, default="English")
     page_count = models.IntegerField(default=0)
+    is_free = models.BooleanField(default=False)
     publisher = models.CharField(max_length=255, blank=True, default="")
+    buy_now_url = models.URLField(max_length=500, blank=True, default="")
+    preview_url = models.URLField(max_length=500, blank=True, default="")
+    download_url = models.URLField(max_length=500, blank=True, default="")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

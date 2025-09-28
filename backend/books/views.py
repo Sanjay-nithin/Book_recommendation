@@ -99,23 +99,99 @@ def update_user_preferences(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def recommended_books(request):
-    user = request.user
-    favorite_genres = list(user.favorite_genres.values_list('name', flat=True))
+    """Content-based recommendations.
 
-    if favorite_genres:
-        # Filter books by favorite genres and randomly select 10
-        matching_books = Book.objects.filter(genres__overlap=favorite_genres).distinct()
-        if matching_books.count() >= 12:
-            books = random.sample(list(matching_books), 12)
-        else:
-            # If not enough matching books, fill with random books
-            additional_books = Book.objects.exclude(id__in=matching_books.values_list('id', flat=True))[:12 - matching_books.count()]
-            books = list(matching_books) + list(additional_books)
-            random.shuffle(books)
+    Scoring signals (weighted):
+    - Genre similarity to user's favorite genres (0.40)
+    - Genre similarity to user's saved books (0.20)
+    - Author match with user's saved books (0.15)
+    - Book rating normalized (0.15)
+    - Liked percentage normalized (0.05)
+    - Language match with user preference (0.05)
+    Excludes books already saved by the user. Returns top 12.
+    """
+    user = request.user
+
+    # Page size: default to 4, allow override via query param
+    try:
+        limit = int(request.GET.get('limit', 4))
+    except (TypeError, ValueError):
+        limit = 4
+    limit = max(1, min(limit, 24))  # clamp to a reasonable range
+
+    # Gather user signals
+    favorite_genres = set(user.favorite_genres.values_list('name', flat=True))
+    preferred_language = (user.preferred_language or '').strip().lower()
+
+    saved_qs = user.saved_books.all()
+    saved_ids = set(saved_qs.values_list('id', flat=True))
+    saved_authors = set(a for a in saved_qs.values_list('author', flat=True) if a)
+    # Union of all genres from saved books
+    saved_genres_union = set()
+    for sb in saved_qs:
+        try:
+            for g in (sb.genres or []):
+                if isinstance(g, str):
+                    saved_genres_union.add(g)
+        except Exception:
+            pass
+
+    # Helper functions
+    def jaccard(a: set, b: set) -> float:
+        if not a and not b:
+            return 0.0
+        inter = a.intersection(b)
+        union = a.union(b)
+        return len(inter) / len(union) if union else 0.0
+
+    def clamp01(x: float) -> float:
+        return 0.0 if x is None else max(0.0, min(1.0, float(x)))
+
+    # We will score all non-saved books; optionally prefilter to any overlapping genre if user has favorites
+    candidates_qs = Book.objects.exclude(id__in=saved_ids)
+    candidates = list(candidates_qs)
+
+    scored = []
+    for b in candidates:
+        try:
+            b_genres = set([g for g in (b.genres or []) if isinstance(g, str)])
+        except Exception:
+            b_genres = set()
+
+        # Signals
+        fav_genre_sim = jaccard(favorite_genres, b_genres) if favorite_genres else 0.0
+        saved_genre_sim = jaccard(saved_genres_union, b_genres) if saved_genres_union else 0.0
+        author_match = 1.0 if (b.author and b.author in saved_authors) else 0.0
+        rating_norm = clamp01((b.rating or 0.0) / 5.0)
+        liked_norm = clamp01((b.liked_percentage or 0.0) / 100.0)
+        lang_match = 1.0 if (preferred_language and (b.language or '').strip().lower() == preferred_language) else 0.0
+
+        # Weights
+        score = (
+            0.40 * fav_genre_sim +
+            0.20 * saved_genre_sim +
+            0.15 * author_match +
+            0.15 * rating_norm +
+            0.05 * liked_norm +
+            0.05 * lang_match
+        )
+        scored.append((score, b))
+
+    # If we have absolutely no signals (new user), fall back to top-rated
+    if not favorite_genres and not saved_ids:
+        fallback_qs = Book.objects.exclude(id__in=saved_ids).order_by('-rating', '-liked_percentage')
+        books = list(fallback_qs[:limit])
     else:
-        # If no favorite genres, return random books
-        all_books = list(Book.objects.all())
-        books = random.sample(all_books, min(12, len(all_books)))
+        # Sort by score desc, break ties by rating
+        scored.sort(key=lambda t: (t[0], getattr(t[1], 'rating', 0.0)), reverse=True)
+        books = [b for _, b in scored[:limit]]
+
+        # if too few candidates (tiny dataset), fill with top-rated non-saved
+        if len(books) < limit:
+            needed = limit - len(books)
+            filler = Book.objects.exclude(id__in=saved_ids.union({bk.id for bk in books})) \
+                                   .order_by('-rating', '-liked_percentage')[:needed]
+            books.extend(list(filler))
 
     serializer = BookSerializer(books, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
@@ -168,7 +244,7 @@ def search_books(request):
 def explore_books(request):
     # Get pagination parameters
     offset = int(request.GET.get('offset', 0))
-    limit = int(request.GET.get('limit', 10))
+    limit = int(request.GET.get('limit', 4))
 
     # Get filter parameters
     author_filter = request.GET.get('author', '').strip()

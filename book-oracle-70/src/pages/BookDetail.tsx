@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -16,7 +16,11 @@ import {
   Tag,
   Globe,
   FileText,
-  Building
+  Building,
+  Eye,
+  ShoppingCart,
+  Download,
+  AlertTriangle
 } from 'lucide-react';
 import { Book, User as UserType } from '@/types/api';
 import { apiService } from '@/services/services.api';
@@ -24,6 +28,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const BookDetail = () => {
   const { bookId } = useParams<{ bookId: string }>();
+  const navigate = useNavigate();
   const [book, setBook] = useState<Book | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaved, setIsSaved] = useState<boolean | undefined>(undefined);
@@ -116,6 +121,19 @@ const BookDetail = () => {
     return description.split('\n').map((paragraph, index) => (
       <p key={index} className="mb-4 last:mb-0">{paragraph}</p>
     ));
+  };
+
+  const onOpenLink = (url?: string) => {
+    if (!url) return;
+    try {
+      window.location.href = url;
+    } catch {}
+  };
+
+  const onPreviewInApp = (url?: string) => {
+    if (!url) return;
+    const qs = new URLSearchParams({ url }).toString();
+    navigate(`/preview?${qs}`, { state: { url } });
   };
 
   if (isLoading) {
@@ -237,6 +255,39 @@ const BookDetail = () => {
                   <Heart className="h-4 w-4 text-muted-foreground" />
                   <span className="font-medium">{book.liked_percentage}% liked</span>
                 </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Actions: Preview / Buy / Download */}
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Button variant="secondary" className="w-full" onClick={() => onPreviewInApp(book.preview_url)}>
+                  <Eye className="h-4 w-4 mr-2" /> View Preview
+                </Button>
+                <Button variant="default" className="w-full" onClick={() => onOpenLink(book.buy_now_url)}>
+                  <ShoppingCart className="h-4 w-4 mr-2" /> Buy Now
+                </Button>
+                {book.is_free ? (
+                  <Button variant="outline" className="w-full" onClick={() => {
+                    if (book.download_url) {
+                      const a = document.createElement('a');
+                      a.href = book.download_url;
+                      a.download = book.title + '.pdf';
+                      a.rel = 'noopener';
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    }
+                  }}>
+                    <Download className="h-4 w-4 mr-2" /> Download Now
+                  </Button>
+                ) : (
+                  <div className="w-full flex items-center justify-center rounded-md border border-destructive/30 text-destructive py-2 px-3 text-sm bg-destructive/5">
+                    <AlertTriangle className="h-4 w-4 mr-2" /> Can't download: this book is not free
+                  </div>
+                )}
               </div>
             </div>
 

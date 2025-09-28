@@ -33,6 +33,10 @@ export interface Book {
   language: string;
   page_count: number;
   publisher: string;
+  preview_url: string;
+  buy_now_url: string;
+  download_url: string;
+  is_free: boolean;
   created_at: string;
   updated_at: string;
 }

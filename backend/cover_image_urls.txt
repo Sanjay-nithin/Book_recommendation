@@ -1,0 +1,15 @@
+A Wrinkle in Time.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069297/book_covers/A%20Wrinkle%20in%20Time.webp
+Divergent.jpg: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069298/book_covers/Divergent.jpg
+Game of thrones.jpg: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069299/book_covers/Game%20of%20thrones.jpg
+HP A Sorcerror's Stone.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069300/book_covers/HP%20A%20Sorcerror%27s%20Stone.webp
+HP chamber of secrets.jpg: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069301/book_covers/HP%20chamber%20of%20secrets.jpg
+HP goblet of fire.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069302/book_covers/HP%20goblet%20of%20fire.webp
+HP half blood prince.jpg: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069305/book_covers/HP%20half%20blood%20prince.jpg
+HP order of the phoneix.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069306/book_covers/HP%20order%20of%20the%20phoneix.webp
+HP The prisoner of azkaban.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069308/book_covers/HP%20The%20prisoner%20of%20azkaban.webp
+The Hobbit.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069309/book_covers/The%20Hobbit.webp
+The hunger Games.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069310/book_covers/The%20hunger%20Games.webp
+The lightning theif.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069311/book_covers/The%20lightning%20theif.webp
+The Name of the Wind.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069312/book_covers/The%20Name%20of%20the%20Wind.webp
+The shining.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069313/book_covers/The%20shining.webp
+Twilight.webp: https://res.cloudinary.com/dtxbcjhpx/image/upload/v1759069314/book_covers/Twilight.webp

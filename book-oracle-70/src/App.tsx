@@ -17,6 +17,7 @@ import NotFound from "./pages/NotFound";
 import SearchPage from "./pages/SearchPage";
 import ExploreBooks from "./pages/ExploreBooks";
 import BookDetail from "./pages/BookDetail";
+import PdfViewer from "./pages/PdfViewer";
 import { apiService } from "./services/services.api";
 
 const queryClient = new QueryClient();
@@ -109,6 +110,13 @@ const App = () => {
               <Route path="/books/:bookId" element={
                 <ProtectedRoute>
                   <BookDetail />
+                </ProtectedRoute>
+              } />
+
+              {/* PDF Preview (Protected) */}
+              <Route path="/preview" element={
+                <ProtectedRoute>
+                  <PdfViewer />
                 </ProtectedRoute>
               } />
 

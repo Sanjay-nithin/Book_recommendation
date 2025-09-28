@@ -47,8 +47,8 @@ const UserDashboard = () => {
 
     setIsLoadingMore(true);
     try {
-      // Get 12 more books from the explore endpoint starting after current recommendations
-      const response = await apiService.exploreBooks({ offset: recommendations.length, limit: 12 });
+  // Get 4 more books from the explore endpoint starting after current recommendations
+  const response = await apiService.exploreBooks({ offset: recommendations.length, limit: 4 });
       if (response.ok && response.data) {
         const data: { books: Book[] } = response.data;
         setRecommendations(prevBooks => [...prevBooks, ...data.books]);
@@ -94,8 +94,8 @@ const UserDashboard = () => {
   const readingStats = {
     totalSaved: savedBooks.length,
     genresFollowing: favoriteGenres.length,
-    TotalBooks: 9866,
-    GenreCollection: 24
+    TotalBooks: 18,
+    GenreCollection: 10,
   };
   return (
     <div className="min-h-screen bg-background">

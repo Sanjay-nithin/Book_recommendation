@@ -1,4 +1,4 @@
-# 📚 Book Oracle - Book Recommendation System
+# 📚 Book Wise - Book Recommendation System
 
 A modern full-stack book recommendation application built with Django REST Framework and React, featuring advanced search, personalized recommendations, and an intuitive user interface.
 
@@ -10,7 +10,7 @@ A modern full-stack book recommendation application built with Django REST Frame
 - Secure API endpoints with token-based authentication
 
 ### 📖 Core Functionality
-- **Personalized Book Recommendations**: AI-powered suggestions based on favorite genres
+- **Personalized Book Recommendations**: Content-based suggestions using favorite genres, saved-book authors/genres, ratings, liked percentage, and preferred language
 - **Live Search**: Real-time book search by title or author with debounced input
 - **Book Exploration**: Infinite scroll pagination through book catalog
 - **Book Details**: Comprehensive book information with rich details
@@ -150,6 +150,24 @@ Then fill the details that you are prompted for and sign in using the email and 
 | GET | `/api/users/me/` | Get current user details |
 | GET | `/api/users/saved-books/` | Get user's saved books |
 | PUT | `/api/users/preferences/` | Update user genre preferences |
+
+## 🧠 Recommendation method
+
+The system uses a lightweight content-based scoring model implemented in `backend/books/views.py` under the `recommended_books` endpoint.
+
+Signals and weights:
+- Favorite-genre similarity (Jaccard): 0.40
+- Saved-books genre similarity (Jaccard): 0.20
+- Author match with any saved book: 0.15
+- Rating normalized (0–5 → 0–1): 0.15
+- Liked percentage normalized (0–100 → 0–1): 0.05
+- Language match with the user’s preferred language: 0.05
+
+Additional details:
+- Already saved books are excluded from recommendations.
+- Cold start (no favorites/saved books): falls back to top-rated books.
+- Data assumptions: `Book.genres` is a list of strings, `rating` in [0, 5], `liked_percentage` in [0, 100].
+- The weights are easy to tune inside `recommended_books()` if you want to prioritize different signals.
 
 ## 🎯 Key Components
 
