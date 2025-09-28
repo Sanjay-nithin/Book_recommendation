@@ -129,6 +129,20 @@ cd book-oracle-70
 npm run dev
 ```
 
+## 🚀 Deployment
+
+The application is deployed with the frontend on Vercel and backend on Render.
+
+### Live Application
+**🌐 Frontend:** [https://book-recommendation-pink.vercel.app/](https://book-recommendation-pink.vercel.app/)
+
+
+### Deployment Notes
+- The backend uses SQLite by default, but PostgreSQL is recommended for production
+- Ensure CORS settings allow requests from your frontend domain
+- Set up proper environment variables for security
+- Monitor logs through Vercel/Render dashboards for debugging
+
 ## Creating Admin User
 ### In Backend Terminal (Book_Recommendation\backend)
 ```bash
