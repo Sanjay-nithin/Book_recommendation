@@ -21,6 +21,7 @@ RUN pip install --upgrade pip && pip install -r requirements.txt && pip install 
 
 # Copy project
 COPY . .
+RUN chmod +x /app/entrypoint.sh
 
 # Collect static (harmless if none)
 RUN python manage.py collectstatic --noinput || true
@@ -28,5 +29,5 @@ RUN python manage.py collectstatic --noinput || true
 # Port for Render
 EXPOSE 8000
 
-# Gunicorn
-CMD ["gunicorn", "backend.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]
+# Entrypoint (runs migrations, then gunicorn)
+CMD ["/app/entrypoint.sh"]
