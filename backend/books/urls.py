@@ -22,4 +22,6 @@ urlpatterns = [
     path('admin/users/', get_all_users, name='get-all-users'),
     path('admin/users/<int:user_id>/delete/', delete_user, name='delete-user'),
     path('admin/books/', get_all_books, name='get-all-books'),
+    path('admin/genres/add/', add_genre, name='add-genre'),
+    path('admin/books/import-csv/', upload_books_csv, name='upload-books-csv'),
 ]

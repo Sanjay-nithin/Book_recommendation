@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Plus, Settings, Trash2, Edit, Search, ChevronDown, BookOpen, Users, BarChart3, Star, TrendingUp } from 'lucide-react';
+import { Plus, Settings, Trash2, Edit, Search, ChevronDown, BookOpen, Users, BarChart3, Star, TrendingUp, Upload, Tag } from 'lucide-react';
 import { apiService } from '@/services/services.api';
 import { DashboardStats, Book, User } from '@/types/api';
 import { useToast } from '@/hooks/use-toast';
@@ -49,6 +49,11 @@ const AdminDashboard = () => {
   const [searchInput, setSearchInput] = useState('');
   const [isLoadingBooks, setIsLoadingBooks] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // Admin tools state
+  const [newGenreName, setNewGenreName] = useState('');
+  const [csvFile, setCsvFile] = useState<File | null>(null);
+  const [isUploadingCsv, setIsUploadingCsv] = useState(false);
+  const [csvResult, setCsvResult] = useState<{created:number;updated:number;errors:any[]}|null>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -188,6 +193,42 @@ const AdminDashboard = () => {
   const loadMoreBooks = async () => {
     setIsLoadingMore(true);
     await loadBooks(searchQuery, booksOffset, false);
+  };
+
+  // Admin: Add Genre
+  const handleAddGenre = async () => {
+    const name = newGenreName.trim();
+    if (!name) {
+      toast({ title: 'Enter a genre name', variant: 'destructive' });
+      return;
+    }
+    const res = await apiService.addGenreAdmin({ name });
+    if (res.ok) {
+      toast({ title: 'Genre saved', description: `Created: ${(res.data.created||[]).join(', ')}` });
+      setNewGenreName('');
+    } else {
+      toast({ title: 'Failed to add genre', description: res.error || 'Error', variant: 'destructive' });
+    }
+  };
+
+  // Admin: Import CSV
+  const handleImportCsv = async () => {
+    if (!csvFile) {
+      toast({ title: 'Choose a CSV file first', variant: 'destructive' });
+      return;
+    }
+    setIsUploadingCsv(true);
+    setCsvResult(null);
+    const res = await apiService.importBooksCsv(csvFile);
+    setIsUploadingCsv(false);
+    if (res.ok) {
+      setCsvResult(res.data);
+      toast({ title: 'CSV processed', description: `Created ${res.data.created}, Updated ${res.data.updated}` });
+      await loadBooks(searchQuery, 0, true);
+      await loadDashboardData();
+    } else {
+      toast({ title: 'CSV import failed', description: res.error || 'Error', variant: 'destructive' });
+    }
   };
 
   const handleAddBook = async () => {
@@ -825,6 +866,53 @@ const AdminDashboard = () => {
                       <p className="text-muted-foreground">2 hours ago</p>
                     </div>
                     <Button variant="outline" size="sm">Configure Engine</Button>
+                  </CardContent>
+                </Card>
+
+                {/* Admin Utilities */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Tag className="h-4 w-4"/>Add Genre</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex gap-2">
+                      <Input placeholder="e.g., Fantasy" value={newGenreName} onChange={(e)=>setNewGenreName(e.target.value)} />
+                      <Button onClick={handleAddGenre} disabled={!newGenreName.trim()}>Add</Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">You can add genres one at a time. For multiple, separate by commas and we will split automatically in a future update.</p>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Upload className="h-4 w-4"/>Import Books via CSV</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <input type="file" accept=".csv" onChange={(e)=>setCsvFile(e.target.files?.[0]||null)} />
+                    <div className="flex gap-2">
+                      <Button onClick={handleImportCsv} disabled={!csvFile || isUploadingCsv}>
+                        {isUploadingCsv ? 'Uploading...' : 'Upload & Import'}
+                      </Button>
+                      <Button variant="outline" onClick={()=>setCsvFile(null)} disabled={isUploadingCsv}>Clear</Button>
+                    </div>
+                    {csvResult && (
+                      <div className="text-sm">
+                        <p>Created: <b>{csvResult.created}</b>, Updated: <b>{csvResult.updated}</b></p>
+                        {csvResult.errors?.length>0 && (
+                          <details className="mt-2">
+                            <summary className="cursor-pointer">View {csvResult.errors.length} row errors</summary>
+                            <ul className="list-disc pl-6 text-xs text-muted-foreground max-h-40 overflow-auto">
+                              {csvResult.errors.slice(0,100).map((er, idx)=>(
+                                <li key={idx}>Row {er.row}: {er.error}</li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Expected headers: title, author, isbn, description, cover_image, publish_date, rating, liked_percentage, genres, language, page_count, publisher, download_url, buy_now_url, preview_url, is_free
+                    </p>
                   </CardContent>
                 </Card>
               </div>

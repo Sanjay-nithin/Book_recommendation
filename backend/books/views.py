@@ -8,6 +8,8 @@ from django.db.models import Q
 from .models import *
 from .serializers import *
 import random
+import csv
+from io import TextIOWrapper
 
 # Helper to generate tokens
 def get_tokens_for_user(user):
@@ -452,3 +454,138 @@ def delete_book(request, book_id):
         return Response({"message": "Book deleted successfully"}, status=status.HTTP_200_OK)
     except Book.DoesNotExist:
         return Response({"error": "Book not found"}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def add_genre(request):
+    """Admin: Add one or multiple genres.
+
+    Accepts either {"name": "Fantasy"} or {"names": ["Fantasy", "Sci-Fi"]}
+    """
+    if not request.user.is_admin:
+        return Response({"error": "Admin access required"}, status=status.HTTP_403_FORBIDDEN)
+
+    data = request.data or {}
+    created = []
+    existing = []
+
+    names = []
+    if 'name' in data and isinstance(data['name'], str):
+        names = [data['name']]
+    elif 'names' in data and isinstance(data['names'], list):
+        names = [str(n) for n in data['names'] if isinstance(n, (str, int))]
+
+    if not names:
+        return Response({"error": "Provide 'name' or 'names'"}, status=status.HTTP_400_BAD_REQUEST)
+
+    for n in names:
+        obj, was_created = Genre.objects.get_or_create(name=n.strip())
+        (created if was_created else existing).append(obj.name)
+
+    return Response({
+        "created": created,
+        "existing": existing
+    }, status=status.HTTP_201_CREATED)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def upload_books_csv(request):
+    """Admin: Upload books from a CSV file (multipart/form-data field 'file').
+
+    Expected columns (best-effort):
+    title, author, isbn, description, cover_image, publish_date, rating, liked_percentage,
+    genres (comma separated), language, page_count, publisher, download_url, buy_now_url, preview_url, is_free
+    """
+    if not request.user.is_admin:
+        return Response({"error": "Admin access required"}, status=status.HTTP_403_FORBIDDEN)
+
+    csv_file = request.FILES.get('file')
+    if not csv_file:
+        return Response({"error": "No file uploaded. Use field name 'file'"}, status=status.HTTP_400_BAD_REQUEST)
+
+    created_count = 0
+    updated_count = 0
+    errors = []
+
+    try:
+        # Ensure text mode and utf-8 decoding
+        text_stream = TextIOWrapper(csv_file.file, encoding='utf-8', errors='ignore')
+        reader = csv.DictReader(text_stream)
+        for idx, row in enumerate(reader, start=2):  # start=2 accounting for header line 1
+            try:
+                isbn = (row.get('isbn') or '').strip()
+                if not isbn:
+                    raise ValueError('Missing ISBN')
+
+                def to_float(v, default=0.0):
+                    try:
+                        if v is None or v == '':
+                            return default
+                        s = str(v).strip().replace('%', '')
+                        return float(s)
+                    except Exception:
+                        return default
+
+                def to_int(v, default=0):
+                    try:
+                        return int(str(v).strip())
+                    except Exception:
+                        return default
+
+                # Genres: split by comma
+                genres_val = row.get('genres') or ''
+                genres_list = [g.strip() for g in str(genres_val).split(',') if g and str(g).strip()]
+
+                # Publish date: store as YYYY-MM-DD if parseable
+                publish_date = None
+                pd_raw = (row.get('publish_date') or '').strip()
+                if pd_raw:
+                    try:
+                        from datetime import datetime
+                        publish_date = datetime.fromisoformat(pd_raw).date()
+                    except Exception:
+                        # try common formats
+                        for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%d-%m-%Y'):
+                            try:
+                                publish_date = datetime.strptime(pd_raw, fmt).date()
+                                break
+                            except Exception:
+                                pass
+
+                defaults = {
+                    "title": (row.get('title') or '').strip(),
+                    "author": (row.get('author') or '').strip(),
+                    "description": (row.get('description') or '').strip(),
+                    "cover_image": (row.get('cover_image') or '').strip(),
+                    "publish_date": publish_date,
+                    "rating": to_float(row.get('rating'), 0.0),
+                    "liked_percentage": to_float(row.get('liked_percentage'), 0.0),
+                    "genres": genres_list,
+                    "language": (row.get('language') or 'English').strip(),
+                    "page_count": to_int(row.get('page_count'), 0),
+                    "publisher": (row.get('publisher') or '').strip(),
+                    "download_url": (row.get('download_url') or '').strip(),
+                    "buy_now_url": (row.get('buy_now_url') or '').strip(),
+                    "preview_url": (row.get('preview_url') or '').strip(),
+                    "is_free": str(row.get('is_free') or '').strip().lower() in ('true', '1', 'yes'),
+                }
+
+                obj, created = Book.objects.update_or_create(
+                    isbn=isbn,
+                    defaults=defaults
+                )
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
+            except Exception as e:
+                errors.append({"row": idx, "error": str(e)})
+
+        return Response({
+            "created": created_count,
+            "updated": updated_count,
+            "errors": errors,
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        return Response({"error": f"Failed to parse CSV: {e}"}, status=status.HTTP_400_BAD_REQUEST)

@@ -23,18 +23,21 @@ const UserDashboard = () => {
   const loadDashboardData = async () => {
     try {
       const user = await apiService.getCurrentUserDetails();
-      setCurrentUser(user.data);
+      if (user && 'ok' in user) {
+        if (user.ok && user.data) setCurrentUser(user.data);
+      }
 
       // Load recommendations
       const recs = await apiService.getRecommendedBooks();
-      console.log(recs.data);
-      setRecommendations(recs.data);
+      if (recs.ok && recs.data) {
+        setRecommendations(Array.isArray(recs.data) ? recs.data : []);
+      } else {
+        setRecommendations([]);
+      }
 
       // Load actual saved books
       const savedRes = await apiService.getSavedBooks();
-      if ('data' in savedRes) {
-        setSavedBooks(savedRes.data);
-      }
+      if (savedRes.ok && savedRes.data) setSavedBooks(savedRes.data);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -49,7 +52,7 @@ const UserDashboard = () => {
     try {
   // Get 4 more books from the explore endpoint starting after current recommendations
   const response = await apiService.exploreBooks({ offset: recommendations.length, limit: 4 });
-      if (response.ok && response.data) {
+      if (response.ok && response.data && Array.isArray(response.data.books)) {
         const data: { books: Book[] } = response.data;
         setRecommendations(prevBooks => [...prevBooks, ...data.books]);
       }

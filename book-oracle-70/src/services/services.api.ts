@@ -207,6 +207,26 @@ export const apiService = {
     return authFetch(`${API_BASE}/books/${bookId}/delete/`, { method: "DELETE" });
   },
 
+  // Admin: Genres
+  async addGenreAdmin(payload: { name?: string; names?: string[] }) {
+    return authFetch(`${API_BASE}/admin/genres/add/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  // Admin: CSV import
+  async importBooksCsv(file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    // Do not set Content-Type; browser will set multipart boundary
+    return authFetch(`${API_BASE}/admin/books/import-csv/`, {
+      method: 'POST',
+      body: form,
+    });
+  },
+
   async updateCurrentUser() {
     const result = await this.getCurrentUserDetails();
     if (result.ok && result.data) {
