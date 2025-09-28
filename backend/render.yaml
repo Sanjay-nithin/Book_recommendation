@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: book-backend
+    env: docker
+    rootDir: ./
+    plan: free
+    autoDeploy: true
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /admin/login/
+    envVars:
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DJANGO_DEBUG
+        value: "False"
+      - key: DJANGO_ALLOWED_HOSTS
+        value: "*"
+      # If you add a managed Postgres on Render, set DATABASE_URL
+      # - key: DATABASE_URL
+      #   fromDatabase:
+      #     name: book-db
+      #     property: connectionString
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: PYTHONDONTWRITEBYTECODE
+        value: "1"
