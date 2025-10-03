@@ -1,6 +1,6 @@
 import { User, Book, LoginRequest, RegisterRequest, DashboardStats } from '@/types/api';
 
-const API_BASE = "http://127.0.0.1:8000/api";
+const API_BASE = "https://book-recommendation-g5gx.onrender.com/api";
 
 // 🛠️ Store tokens + user
 function setSession(access: string, refresh: string, user: User) {
