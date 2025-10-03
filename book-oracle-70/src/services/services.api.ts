@@ -20,7 +20,7 @@ async function handleResponse(res: Response) {
   try {
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      return { ok: false, error: errorData.detail || res.statusText };
+      return { ok: false, error: errorData.detail || errorData.error || res.statusText };
     }
     const data = await res.json();
     return { ok: true, data };
@@ -69,7 +69,6 @@ async function authFetch(url: string, options: RequestInit = {}) {
     const refreshed = await refreshToken();
     if (refreshed) {
       token = localStorage.getItem("access");
-      console.log("Retrying with token:", token);
       const retryRes = await fetch(url, {
         ...options,
         headers: {

@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 
 
 const GenrePreferences = () => {
-  const [genres, setGenres] = useState<string[]>([]);
+  const [genres, setGenres] = useState<any[]>([]);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -59,7 +59,7 @@ const GenrePreferences = () => {
     setIsSaving(false);
   }
   };
-  console.log(genres);
+  
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-muted/30 to-accent-soft/20">
@@ -97,23 +97,23 @@ const GenrePreferences = () => {
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             {genres.map((genre) => (
               <div
-                key={genre.id}
-                onClick={() => toggleGenre(genre.name)}
+                key={genre.id ?? genre}
+                onClick={() => toggleGenre(genre.name ?? genre)}
                 className={`
                   relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-300 hover:scale-105
-                  ${selectedGenres.includes(genre.name) ? 'border-accent bg-accent/10 shadow-book' : 'border-border hover:border-accent/50 hover:bg-accent/5'}
+                  ${selectedGenres.includes(genre.name ?? genre) ? 'border-accent bg-accent/10 shadow-book' : 'border-border hover:border-accent/50 hover:bg-accent/5'}
                 `}
               >
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center bg-accent text-accent-foreground font-bold">
-                    {genre.name.charAt(0)}
+                    {(genre.name ?? genre).charAt(0)}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-sm">{genre.name}</h3>
+                    <h3 className="font-semibold text-sm">{genre.name ?? genre}</h3>
                   </div>
                 </div>
 
-                {selectedGenres.includes(genre.name) && (
+                {selectedGenres.includes(genre.name ?? genre) && (
                   <div className="absolute -top-2 -right-2 w-6 h-6 bg-accent text-accent-foreground rounded-full flex items-center justify-center animate-fade-in">
                     <Check className="h-3 w-3" />
                   </div>

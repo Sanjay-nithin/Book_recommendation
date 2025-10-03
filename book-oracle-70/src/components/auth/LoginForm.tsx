@@ -180,7 +180,14 @@ const LoginForm = () => {
                               toast({ title: 'OTP sent', description: 'Check your email for the OTP.'});
                               setResetStep('otp');
                             } else {
-                              toast({ title: 'Failed to send OTP', description: res.error || 'Try again later', variant: 'destructive'});
+                              const msg = (res as any).error || '';
+                              if (typeof msg === 'string' && msg.toLowerCase().includes('no account')) {
+                                toast({ title: 'No account found', description: 'Please register an account first.', variant: 'destructive' });
+                                setShowReset(false);
+                                setResetStep('email');
+                              } else {
+                                toast({ title: 'Failed to send OTP', description: msg || 'Try again later', variant: 'destructive'});
+                              }
                             }
                           }}
                         >
@@ -210,7 +217,15 @@ const LoginForm = () => {
                               toast({ title: 'OTP verified' });
                               setResetStep('new');
                             } else {
-                              toast({ title: 'Invalid OTP', description: res.error || 'Try again', variant: 'destructive'});
+                              const errMsg = (res as any)?.error || '';
+                              if (typeof errMsg === 'string' && errMsg.toLowerCase().includes('invalid credentials')) {
+                                toast({ title: 'No account found', description: 'Please register an account before resetting your password.', variant: 'destructive' });
+                                // Exit the reset flow and guide to register
+                                setShowReset(false);
+                                setResetStep('email');
+                              } else {
+                                toast({ title: 'Invalid OTP', description: errMsg || 'Try again', variant: 'destructive'});
+                              }
                             }
                           }}
                         >

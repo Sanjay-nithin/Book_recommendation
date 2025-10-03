@@ -72,9 +72,7 @@ const ExploreBooks = () => {
     try {
       const user = await apiService.getCurrentUserDetails();
       setCurrentUser(user.data);
-    } catch (error) {
-      console.error('Failed to load user data:', error);
-    }
+    } catch (error) {}
   };
   
   const loadFilterOptions = async () => {
@@ -84,9 +82,7 @@ const ExploreBooks = () => {
       if (response.ok && response.data) {
         setFilterOptions(response.data);
       }
-    } catch (error) {
-      console.error('Failed to load filter options:', error);
-    } finally {
+    } catch (error) {} finally {
       setIsLoadingFilterOptions(false);
     }
   };
@@ -102,9 +98,7 @@ const ExploreBooks = () => {
         setHasMore(data.has_more);
         setOffset(params.offset + params.limit);
       }
-    } catch (error) {
-      console.error('Failed to load books:', error);
-    } finally {
+    } catch (error) {} finally {
       if (!append) setIsLoading(false);
       if (append) setIsLoadingMore(false);
     }
@@ -145,9 +139,7 @@ const ExploreBooks = () => {
       if ('data' in user) {
         setCurrentUser(user.data);
       }
-    } catch (error) {
-      console.error('Failed to refresh user data:', error);
-    }
+    } catch (error) {}
   };
 
   if (isLoading) {

@@ -90,10 +90,9 @@ const AdminDashboard = () => {
       if (dashboardStats.ok) setStats(dashboardStats.data);
       if (booksList.ok) setBooks(booksList.data);
     } catch (error) {
-      console.error('Failed to load admin dashboard data:', error);
+      // Swallow error; toast is shown elsewhere when needed
     } finally {
       setIsLoading(false);
-      console.log(stats);
     }
   };
 
@@ -432,12 +431,6 @@ const AdminDashboard = () => {
                 Manage books, users, and platform analytics
               </p>
             </div>
-            <div className="flex gap-3">
-                <Button variant="default" onClick={() => setIsAddBookModalOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Book
-                </Button>
-            </div>
           </div>
         </div>
 
@@ -509,7 +502,6 @@ const AdminDashboard = () => {
                             <div className="w-4 h-4 rounded-full bg-accent" />
                             <span className="font-medium">{genre}</span>
                           </div>
-                          <Badge variant="outline">{Math.floor(Math.random() * 500) + 100} books</Badge>
                         </div>
                       ))}
                     </div>
@@ -526,12 +518,6 @@ const AdminDashboard = () => {
                       {stats?.recent_searches.map((search, index) => (
                         <div key={index} className="flex items-center justify-between">
                           <span className="text-sm">{search}</span>
-                          <div className="flex items-center space-x-2">
-                            <TrendingUp className="h-3 w-3 text-success" />
-                            <span className="text-xs text-muted-foreground">
-                              {Math.floor(Math.random() * 50) + 10} searches
-                            </span>
-                          </div>
                         </div>
                       ))}
                     </div>

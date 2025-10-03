@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate
+import logging
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -13,6 +14,8 @@ import traceback
 # Import the pandas-based CSV upload function
 from .pandas_utils import upload_books_csv_pandas
 from .utils import send_otp_email
+
+logger = logging.getLogger('books')
 
 # Helper to generate tokens
 def get_tokens_for_user(user):
@@ -65,15 +68,12 @@ def login_view(request):
     data = request.data
     email = data.get("email")
     password = data.get("password")
-    print(email, password)
     try:
         user = User.objects.get(email=email)
-        print("Found user:", user.username)
     except User.DoesNotExist:
         return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
     user = authenticate(email=user.email, password=password)
-    print(user)
     if not user:
         return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
@@ -368,7 +368,7 @@ def dashboard_stats(request):
             'top_rated_books': serializer.data
         }, status=status.HTTP_200_OK)
     except Exception as e:
-        print(traceback.format_exc())
+        logger.exception("Error computing dashboard stats")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
@@ -560,18 +560,17 @@ def forgot_password(request):
             user = User.objects.get(email=email)
         except User.DoesNotExist:
             return Response(
-                {"success": "If your email exists in our system, you will receive a password reset OTP shortly."},
-                status=status.HTTP_200_OK
+                {"error": "No account found for this email. Please register first."},
+                status=status.HTTP_400_BAD_REQUEST
             )
         
         # Generate and send OTP
         try:
-            print("❤️ reached here")
             otp = send_otp_email(user)
             
         except Exception:
             # Return generic success to avoid revealing account existence
-            print(traceback.format_exc())
+            logger.exception("Failed to send OTP email")
             return Response(
                 {"success": "If your email exists in our system, you will receive a password reset OTP shortly."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -654,7 +653,7 @@ def verify_otp(request):
         )
     
     except Exception as e:
-        print(traceback.format_exc())
+        logger.exception("Error verifying OTP")
         return Response(
             {"error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR

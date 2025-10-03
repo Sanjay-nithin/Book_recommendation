@@ -23,9 +23,7 @@ const SearchPage = () => {
     try {
       const user = await apiService.getCurrentUserDetails();
       setCurrentUser(user.data);
-    } catch (error) {
-      console.error('Failed to load user data:', error);
-    }
+    } catch (error) {}
   };
 
   // Debounced search function
@@ -46,7 +44,6 @@ const SearchPage = () => {
           setResults([]);
         }
       } catch (error) {
-        console.error('Search failed:', error);
         setResults([]);
       } finally {
         setIsLoading(false);
@@ -75,9 +72,7 @@ const SearchPage = () => {
       if ('data' in user) {
         setCurrentUser(user.data);
       }
-    } catch (error) {
-      console.error('Failed to refresh user data:', error);
-    }
+    } catch (error) {}
   };
 
   return (

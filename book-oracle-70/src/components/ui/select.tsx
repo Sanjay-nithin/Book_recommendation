@@ -113,10 +113,6 @@ const SelectItem = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Item>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Item>
 >(({ className, children, value, ...props }, ref) => {
-  if (process.env.NODE_ENV !== 'production' && (value === '' || value === undefined)) {
-    // eslint-disable-next-line no-console
-    console.warn('SelectItem received an empty value. Use a non-empty sentinel and map it to empty string in state.');
-  }
   return (
     <SelectPrimitive.Item
       ref={ref}

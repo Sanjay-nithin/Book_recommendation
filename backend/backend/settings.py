@@ -164,8 +164,9 @@ CORS_ALLOW_HEADERS = [
 # Email settings for password reset
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_USE_TLS = False  # Must be False if using SSL
 EMAIL_HOST_USER = 'lapatisseriex@gmail.com'  # Replace with your email
 # Gmail app passwords are shown grouped with spaces but must be configured WITHOUT spaces
 EMAIL_HOST_PASSWORD = "kgpppandnesxkwti"  # App password without spaces

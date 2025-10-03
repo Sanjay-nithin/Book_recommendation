@@ -21,10 +21,13 @@ const HomePage = () => {
 
   const loadTrendingBooks = async () => {
     try {
-      const books = await apiService.getRecommendedBooks();
-      setTrendingBooks(books);
+      const res = await apiService.getRecommendedBooks();
+      if (res.ok && res.data) {
+        setTrendingBooks(res.data as Book[]);
+      } else {
+        setTrendingBooks([]);
+      }
     } catch (error) {
-      console.error('Failed to load trending books:', error);
     } finally {
       setIsLoading(false);
     }

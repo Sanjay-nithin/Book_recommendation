@@ -39,7 +39,6 @@ const UserDashboard = () => {
       const savedRes = await apiService.getSavedBooks();
       if (savedRes.ok && savedRes.data) setSavedBooks(savedRes.data);
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -57,7 +56,6 @@ const UserDashboard = () => {
         setRecommendations(prevBooks => [...prevBooks, ...data.books]);
       }
     } catch (error) {
-      console.error('Failed to load more recommendations:', error);
     } finally {
       setIsLoadingMore(false);
     }
@@ -74,9 +72,7 @@ const UserDashboard = () => {
       if ('data' in savedRes) {
         setSavedBooks(savedRes.data);
       }
-    } catch (error) {
-      console.error('Failed to refresh user data:', error);
-    }
+    } catch (error) {}
   };
 
   if (isLoading) {
@@ -91,7 +87,7 @@ const UserDashboard = () => {
       </div>
     );
   }
-  console.log(currentUser);
+  
 
   const favoriteGenres = currentUser?.favorite_genres || [];
   const readingStats = {
