@@ -4,12 +4,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.db.models import Q
+from django.db.models import Q, Count, Avg, F
+from django.db.models.functions import ExtractYear
 from .models import *
 from .serializers import *
-import random
-import csv
-from io import TextIOWrapper
+import datetime
+import traceback
+# Import the pandas-based CSV upload function
+from .pandas_utils import upload_books_csv_pandas
+from .utils import send_otp_email
 
 # Helper to generate tokens
 def get_tokens_for_user(user):
@@ -33,10 +36,11 @@ def register_view(request):
     if not username or not email or not password:
         return Response({"detail": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    if User.objects.filter(username=username).exists():
+    # Using list materialization instead of .exists() for Djongo compatibility
+    if list(User.objects.filter(username=username)):
         return Response({"detail": "Username already taken"}, status=status.HTTP_400_BAD_REQUEST)
 
-    if User.objects.filter(email=email).exists():
+    if list(User.objects.filter(email=email)):
         return Response({"detail": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST)
 
     user = User.objects.create_user(username=username, email=email, password=password, first_name=first_name, last_name=last_name)
@@ -273,12 +277,17 @@ def explore_books(request):
     if language_filter:
         books_qs = books_qs.filter(Q(language__icontains=language_filter))
 
-    # Apply pagination
-    total_count = books_qs.count()
-    books_qs = books_qs[offset:offset + limit]
+    # To avoid Djongo issues with count() after filtering, materialize the full list
+    # Note: This approach works for reasonably sized datasets but may need pagination
+    # at the database level for very large datasets
+    all_matching_books = list(books_qs)
+    total_count = len(all_matching_books)
+    
+    # Apply pagination in Python
+    paginated_books = all_matching_books[offset:offset + limit]
 
     # Serialize the paginated results
-    serializer = BookSerializer(books_qs, many=True)
+    serializer = BookSerializer(paginated_books, many=True)
     has_more = (offset + limit) < total_count
 
     return Response({
@@ -301,55 +310,66 @@ def book_detail(request, book_id):
 @permission_classes([IsAuthenticated])
 def dashboard_stats(request):
     from django.db.models import Count, Avg
-    import datetime
+    try: 
+        # Get total books - using len() with list() to avoid Djongo count() issues
+        total_books = len(list(Book.objects.all()))
 
-    # Get total books
-    total_books = Book.objects.count()
+        # Get total users
+        total_users = len(list(User.objects.all()))
 
-    # Get total users
-    total_users = User.objects.count()
+        # Books added today
+        today = datetime.date.today()
+        today_start = datetime.datetime.combine(today, datetime.time.min)
+        today_end = datetime.datetime.combine(today, datetime.time.max)
 
-    # Books added today
-    today = datetime.date.today()
-    books_added_today = Book.objects.filter(created_at__date=today).count()
+        books_added_today = len(list(Book.objects.filter(
+            created_at__gte=today_start,
+            created_at__lte=today_end
+        )))
 
-    # Average rating
-    avg_rating = Book.objects.aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0
+        # Average rating
+        avg_rating = Book.objects.aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0
 
-    # Get most popular genres (books count per genre)
-    genre_stats = {}
-    for book in Book.objects.all():
-        for genre in book.genres:
-            genre_stats[genre] = genre_stats.get(genre, 0) + 1
-    most_popular_genres = sorted(genre_stats.items(), key=lambda x: x[1], reverse=True)[:5]
-    most_popular_genres = [genre for genre, count in most_popular_genres]
+        # Get most popular genres (books count per genre)
+        genre_stats = {}
+        for book in Book.objects.all():
+            for genre in book.genres:
+                genre_stats[genre] = genre_stats.get(genre, 0) + 1
+        most_popular_genres = sorted(genre_stats.items(), key=lambda x: x[1], reverse=True)[:5]
+        most_popular_genres = [genre for genre, count in most_popular_genres]
 
-    # Recent searches (mock data for now)
-    recent_searches = ["fantasy", "mystery", "sci-fi", "romance", "thriller"]
+        # Recent searches (mock data for now)
+        recent_searches = ["fantasy", "mystery", "sci-fi", "romance", "thriller"]
 
-    # Top rated books this month
-    thirty_days_ago = datetime.date.today() - datetime.timedelta(days=30)
-    top_rated_books_qs = Book.objects.filter(
-        updated_at__gte=thirty_days_ago
-    ).order_by('-rating')[:4]
+        # Top rated books this month
+        thirty_days_ago = datetime.date.today() - datetime.timedelta(days=30)
+        
+        # Convert to list immediately to avoid Djongo's issues with LIMIT + COUNT
+        top_rated_books = list(Book.objects.filter(
+            updated_at__gte=thirty_days_ago
+        ).order_by('-rating')[:4])
+        
+        # For now, include recent books as top rated if not enough recent updates
+        if len(top_rated_books) < 4:
+            # Get recent books, excluding any already in top_rated_books
+            top_ids = [book.id for book in top_rated_books]
+            recent_books = list(Book.objects.exclude(id__in=top_ids).order_by('-created_at')[:4 - len(top_rated_books)])
+            top_rated_books = top_rated_books + recent_books
 
-    # For now, include recent books as top rated if not enough recent updates
-    if top_rated_books_qs.count() < 4:
-        recent_books = Book.objects.order_by('-created_at')[:4 - top_rated_books_qs.count()]
-        top_rated_books_qs = list(top_rated_books_qs) + list(recent_books)
+        serializer = BookSerializer(top_rated_books, many=True)
 
-    serializer = BookSerializer(top_rated_books_qs, many=True)
-
-    return Response({
-        'total_books': total_books,
-        'total_users': total_users,
-        'books_added_today': books_added_today,
-        'avg_rating': round(avg_rating, 1),
-        'most_popular_genres': most_popular_genres,
-        'recent_searches': recent_searches,
-        'top_rated_books': serializer.data
-    }, status=status.HTTP_200_OK)
-
+        return Response({
+            'total_books': total_books,
+            'total_users': total_users,
+            'books_added_today': books_added_today,
+            'avg_rating': round(avg_rating, 1),
+            'most_popular_genres': most_popular_genres,
+            'recent_searches': recent_searches,
+            'top_rated_books': serializer.data
+        }, status=status.HTTP_200_OK)
+    except Exception as e:
+        print(traceback.format_exc())
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_users(request):
@@ -396,12 +416,15 @@ def get_all_books(request):
             Q(isbn__icontains=search_query)
         )
 
-    # Apply pagination
-    total_count = books_qs.count()
-    books_qs = books_qs[offset:offset + limit]
+    # To avoid Djongo issues with count() after filtering, materialize the full list
+    all_matching_books = list(books_qs)
+    total_count = len(all_matching_books)
+    
+    # Apply pagination in Python
+    paginated_books = all_matching_books[offset:offset + limit]
 
     # Serialize the paginated results
-    serializer = BookSerializer(books_qs, many=True)
+    serializer = BookSerializer(paginated_books, many=True)
 
     # Check if there are more results
     has_more = (offset + limit) < total_count
@@ -487,105 +510,214 @@ def add_genre(request):
         "existing": existing
     }, status=status.HTTP_201_CREATED)
 
-@api_view(['POST'])
+@api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def upload_books_csv(request):
-    """Admin: Upload books from a CSV file (multipart/form-data field 'file').
-
-    Expected columns (best-effort):
-    title, author, isbn, description, cover_image, publish_date, rating, liked_percentage,
-    genres (comma separated), language, page_count, publisher, download_url, buy_now_url, preview_url, is_free
+def get_filter_options(request):
     """
-    if not request.user.is_admin:
-        return Response({"error": "Admin access required"}, status=status.HTTP_403_FORBIDDEN)
-
-    csv_file = request.FILES.get('file')
-    if not csv_file:
-        return Response({"error": "No file uploaded. Use field name 'file'"}, status=status.HTTP_400_BAD_REQUEST)
-
-    created_count = 0
-    updated_count = 0
-    errors = []
-
+    Get unique filter options for the book explorer
+    Returns unique authors, publishers, genres, and publication years
+    """
     try:
-        # Ensure text mode and utf-8 decoding
-        text_stream = TextIOWrapper(csv_file.file, encoding='utf-8', errors='ignore')
-        reader = csv.DictReader(text_stream)
-        for idx, row in enumerate(reader, start=2):  # start=2 accounting for header line 1
-            try:
-                isbn = (row.get('isbn') or '').strip()
-                if not isbn:
-                    raise ValueError('Missing ISBN')
-
-                def to_float(v, default=0.0):
-                    try:
-                        if v is None or v == '':
-                            return default
-                        s = str(v).strip().replace('%', '')
-                        return float(s)
-                    except Exception:
-                        return default
-
-                def to_int(v, default=0):
-                    try:
-                        return int(str(v).strip())
-                    except Exception:
-                        return default
-
-                # Genres: split by comma
-                genres_val = row.get('genres') or ''
-                genres_list = [g.strip() for g in str(genres_val).split(',') if g and str(g).strip()]
-
-                # Publish date: store as YYYY-MM-DD if parseable
-                publish_date = None
-                pd_raw = (row.get('publish_date') or '').strip()
-                if pd_raw:
-                    try:
-                        from datetime import datetime
-                        publish_date = datetime.fromisoformat(pd_raw).date()
-                    except Exception:
-                        # try common formats
-                        for fmt in ('%Y-%m-%d', '%m/%d/%Y', '%d-%m-%Y'):
-                            try:
-                                publish_date = datetime.strptime(pd_raw, fmt).date()
-                                break
-                            except Exception:
-                                pass
-
-                defaults = {
-                    "title": (row.get('title') or '').strip(),
-                    "author": (row.get('author') or '').strip(),
-                    "description": (row.get('description') or '').strip(),
-                    "cover_image": (row.get('cover_image') or '').strip(),
-                    "publish_date": publish_date,
-                    "rating": to_float(row.get('rating'), 0.0),
-                    "liked_percentage": to_float(row.get('liked_percentage'), 0.0),
-                    "genres": genres_list,
-                    "language": (row.get('language') or 'English').strip(),
-                    "page_count": to_int(row.get('page_count'), 0),
-                    "publisher": (row.get('publisher') or '').strip(),
-                    "download_url": (row.get('download_url') or '').strip(),
-                    "buy_now_url": (row.get('buy_now_url') or '').strip(),
-                    "preview_url": (row.get('preview_url') or '').strip(),
-                    "is_free": str(row.get('is_free') or '').strip().lower() in ('true', '1', 'yes'),
-                }
-
-                obj, created = Book.objects.update_or_create(
-                    isbn=isbn,
-                    defaults=defaults
-                )
-                if created:
-                    created_count += 1
-                else:
-                    updated_count += 1
-            except Exception as e:
-                errors.append({"row": idx, "error": str(e)})
-
+        # Get unique authors (limit to top 50 for performance)
+        authors = Book.objects.values_list('author', flat=True).distinct().order_by('author')[:50]
+        
+        # Get unique publishers (limit to top 50 for performance)
+        
+        # Get unique languages
+        languages = Book.objects.values_list('language', flat=True).distinct().order_by('language')
+        
+        # Get all genres
+        genre_objects = Genre.objects.all().order_by('name')
+        genres = [{"id": genre.id, "name": genre.name} for genre in genre_objects]
+        
         return Response({
-            "created": created_count,
-            "updated": updated_count,
-            "errors": errors,
+            "authors": list(authors),
+            "genres": genres,
+            "languages": list(languages)
         }, status=status.HTTP_200_OK)
-
     except Exception as e:
-        return Response({"error": f"Failed to parse CSV: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def forgot_password(request):
+    """
+    Handle forgotten password requests by sending an OTP to the user's email
+    """
+    try:
+        data = request.data
+        email = data.get('email')
+        
+        if not email:
+            return Response(
+                {"error": "Email is required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user exists
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"success": "If your email exists in our system, you will receive a password reset OTP shortly."},
+                status=status.HTTP_200_OK
+            )
+        
+        # Generate and send OTP
+        try:
+            print("❤️ reached here")
+            otp = send_otp_email(user)
+            
+        except Exception:
+            # Return generic success to avoid revealing account existence
+            print(traceback.format_exc())
+            return Response(
+                {"success": "If your email exists in our system, you will receive a password reset OTP shortly."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+        return Response(
+            {"success": "OTP has been sent to your email."},
+            status=status.HTTP_200_OK
+        )
+    
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def verify_otp(request):
+    """
+    Verify the OTP sent to the user for password reset
+    """
+    try:
+        data = request.data
+        email = data.get('email')
+        otp = data.get('otp')
+        
+        if not email or not otp:
+            return Response(
+                {"error": "Email and OTP are required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user exists
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Invalid credentials"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Find the latest OTPs for this user, avoiding boolean filters that Djongo struggles with
+        # We'll select by user_id and then apply is_used/expiry checks in Python
+        otp_qs = PasswordResetOTP.objects.filter(user_id=user.id).order_by('-created_at')
+        otp_obj = None
+        for candidate in otp_qs:
+            if not candidate.is_used:
+                otp_obj = candidate
+                break
+
+        if not otp_obj:
+            return Response(
+                {"error": "No active OTP found. Please request a new one."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not otp_obj.is_valid():
+            return Response(
+                {"error": "OTP has expired. Please request a new one."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if otp_obj.otp != otp:
+            return Response(
+                {"error": "Invalid OTP"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # OTP is valid, return a token or session identifier
+        # that will be used for the password reset
+        return Response(
+            {
+                "success": "OTP verified successfully",
+                "email": email,
+                "otp_id": otp_obj.id  # This will be used in the reset password step
+            },
+            status=status.HTTP_200_OK
+        )
+    
+    except Exception as e:
+        print(traceback.format_exc())
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def reset_password(request):
+    """
+    Reset the user's password after OTP verification
+    """
+    try:
+        data = request.data
+        email = data.get('email')
+        otp_id = data.get('otp_id')
+        new_password = data.get('new_password')
+        
+        if not email or not otp_id or not new_password:
+            return Response(
+                {"error": "Email, OTP ID, and new password are required"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Check if user exists
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "Invalid credentials"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Find the OTP record
+        try:
+            otp_obj = PasswordResetOTP.objects.get(id=otp_id, user_id=user.id)
+        except PasswordResetOTP.DoesNotExist:
+            return Response(
+                {"error": "Invalid or expired OTP. Please request a new one."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not otp_obj.is_valid():
+            return Response(
+                {"error": "OTP has expired. Please request a new one."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Reset the password
+        user.set_password(new_password)
+        user.save()
+
+        # Mark OTP as used
+        otp_obj.is_used = True
+        otp_obj.save()
+
+        return Response(
+            {"success": "Password has been reset successfully. You can now login with your new password."},
+            status=status.HTTP_200_OK
+        )
+    
+    except Exception as e:
+        return Response(
+            {"error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

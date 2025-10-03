@@ -15,6 +15,14 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [failedOnce, setFailedOnce] = useState(false);
+  // Forgot password flow state
+  const [showReset, setShowReset] = useState(false);
+  const [resetStep, setResetStep] = useState<'email'|'otp'|'new'>('email');
+  const [fpEmail, setFpEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpId, setOtpId] = useState<number | null>(null);
+  const [newPassword, setNewPassword] = useState('');
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -28,6 +36,7 @@ const LoginForm = () => {
       const res = await apiService.login({ email, password });
       if ('error' in res) {
         setError(res.error);
+        setFailedOnce(true);
         return;
       }
 
@@ -132,6 +141,132 @@ const LoginForm = () => {
                 )}
               </Button>
             </form>
+
+              {/* Forgot password entry point */}
+              {failedOnce && !showReset && (
+                <div className="mt-3 text-sm text-center">
+                  <button
+                    className="text-primary hover:underline"
+                    onClick={() => {
+                      setShowReset(true);
+                      setResetStep('email');
+                      setFpEmail(email);
+                    }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
+              {/* Forgot password inline flow */}
+              {showReset && (
+                <div className="mt-4 p-4 border rounded-md space-y-3">
+                  {resetStep === 'email' && (
+                    <>
+                      <Label htmlFor="fp-email">Account email</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="fp-email"
+                          type="email"
+                          placeholder="your@email.com"
+                          value={fpEmail}
+                          onChange={(e) => setFpEmail(e.target.value)}
+                        />
+                        <Button
+                          onClick={async () => {
+                            if (!fpEmail) return;
+                            const res = await apiService.forgotPassword(fpEmail);
+                            if (res.ok) {
+                              toast({ title: 'OTP sent', description: 'Check your email for the OTP.'});
+                              setResetStep('otp');
+                            } else {
+                              toast({ title: 'Failed to send OTP', description: res.error || 'Try again later', variant: 'destructive'});
+                            }
+                          }}
+                        >
+                          Send OTP
+                        </Button>
+                      </div>
+                    </>
+                  )}
+
+                  {resetStep === 'otp' && (
+                    <>
+                      <Label htmlFor="otp">Enter OTP</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="otp"
+                          placeholder="6-digit code"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value)}
+                          inputMode="numeric"
+                        />
+                        <Button
+                          onClick={async () => {
+                            if (!fpEmail || !otp) return;
+                            const res = await apiService.verifyOtp(fpEmail, otp);
+                            if (res.ok && res.data?.otp_id) {
+                              setOtpId(res.data.otp_id);
+                              toast({ title: 'OTP verified' });
+                              setResetStep('new');
+                            } else {
+                              toast({ title: 'Invalid OTP', description: res.error || 'Try again', variant: 'destructive'});
+                            }
+                          }}
+                        >
+                          Verify
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setShowReset(false);
+                            setResetStep('email');
+                            setOtp('');
+                            setOtpId(null);
+                            setNewPassword('');
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
+                    </>
+                  )}
+
+                  {resetStep === 'new' && (
+                    <>
+                      <Label htmlFor="new-pass">New password</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="new-pass"
+                          type="password"
+                          placeholder="Enter new password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                        <Button
+                          onClick={async () => {
+                            if (!fpEmail || !otpId || !newPassword) return;
+                            const res = await apiService.resetPassword(fpEmail, otpId, newPassword);
+                            if (res.ok) {
+                              toast({ title: 'Password updated', description: 'Please sign in with your new password.'});
+                              setShowReset(false);
+                              setResetStep('email');
+                              setOtp('');
+                              setOtpId(null);
+                              setNewPassword('');
+                            } else {
+                              toast({ title: 'Failed to update password', description: res.error || 'Try again', variant: 'destructive'});
+                            }
+                          }}
+                        >
+                          Update
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
               
               <div className="pt-4 border-t">
                 <p className="text-sm text-muted-foreground">

@@ -44,6 +44,14 @@ export interface Book {
 
 export interface LoginRequest { email: string; password: string }
 
+export interface FilterOptions {
+  authors: string[];
+  publishers: string[];
+  genres: Genre[];
+  years: number[];
+  languages: string[];
+}
+
 export interface RegisterRequest {
   email: string;
   username: string;

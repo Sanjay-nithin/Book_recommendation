@@ -1,6 +1,6 @@
 import { User, Book, LoginRequest, RegisterRequest, DashboardStats } from '@/types/api';
 
-const API_BASE = "https://book-recommendation-g5gx.onrender.com/api";
+const API_BASE = "http://127.0.0.1:8000/api";
 
 // 🛠️ Store tokens + user
 function setSession(access: string, refresh: string, user: User) {
@@ -156,6 +156,31 @@ export const apiService = {
     return authFetch(`${API_BASE}/dashboard/`);
   },
 
+  // Password reset
+  async forgotPassword(email: string) {
+    return authFetch(`${API_BASE}/auth/forgot-password/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async verifyOtp(email: string, otp: string) {
+    return authFetch(`${API_BASE}/auth/verify-otp/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp }),
+    });
+  },
+
+  async resetPassword(email: string, otp_id: number, new_password: string) {
+    return authFetch(`${API_BASE}/auth/reset-password/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, otp_id, new_password }),
+    });
+  },
+
   getCurrentUserDetails() {
     return authFetch(`${API_BASE}/users/me/`);
   },
@@ -164,9 +189,31 @@ export const apiService = {
     return authFetch(`${API_BASE}/users/saved-books/`);
   },
 
-  async exploreBooks(params: { offset: number; limit: number }) {
-    const queryString = `?offset=${params.offset}&limit=${params.limit}`;
+  async exploreBooks(params: { 
+    offset: number; 
+    limit: number;
+    author?: string;
+    isbn?: string;
+    genre?: string;
+    published_year?: string;
+    publisher?: string;
+    language?: string;
+  }) {
+    const { offset, limit, author, isbn, genre, published_year, publisher, language } = params;
+    
+    let queryString = `?offset=${offset}&limit=${limit}`;
+    if (author) queryString += `&author=${encodeURIComponent(author)}`;
+    if (isbn) queryString += `&isbn=${encodeURIComponent(isbn)}`;
+    if (genre) queryString += `&genre=${encodeURIComponent(genre)}`;
+    if (published_year) queryString += `&published_year=${encodeURIComponent(published_year)}`;
+    if (publisher) queryString += `&publisher=${encodeURIComponent(publisher)}`;
+    if (language) queryString += `&language=${encodeURIComponent(language)}`;
+    
     return authFetch(`${API_BASE}/books/explore/${queryString}`);
+  },
+  
+  async getFilterOptions() {
+    return authFetch(`${API_BASE}/books/filter-options/`);
   },
 
   // Admin endpoints

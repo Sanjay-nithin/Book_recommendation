@@ -93,6 +93,7 @@ const AdminDashboard = () => {
       console.error('Failed to load admin dashboard data:', error);
     } finally {
       setIsLoading(false);
+      console.log(stats);
     }
   };
 
@@ -386,7 +387,6 @@ const AdminDashboard = () => {
       </div>
     );
   }
-
   const quickStats = [
     {
       label: 'Total Books',
@@ -433,10 +433,6 @@ const AdminDashboard = () => {
               </p>
             </div>
             <div className="flex gap-3">
-              <Button variant="outline">
-                <Settings className="mr-2 h-4 w-4" />
-                Settings
-              </Button>
                 <Button variant="default" onClick={() => setIsAddBookModalOpen(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Add Book

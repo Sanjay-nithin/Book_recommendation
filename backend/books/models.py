@@ -2,6 +2,9 @@ from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.utils import timezone
 from django.contrib.postgres.fields import ArrayField
+import random
+import string
+from datetime import timedelta
 
 
 class UserManager(BaseUserManager):
@@ -59,6 +62,45 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.email
+
+
+class PasswordResetOTP(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    
+    @classmethod
+    def generate_otp(cls, user):
+        # Mark any existing OTPs for this user as used.
+        # IMPORTANT: Avoid filtering on is_used=False to prevent Djongo from
+        # generating a NOT boolean SQL clause that it cannot translate.
+        try:
+            cls.objects.filter(user_id=user.id).update(is_used=True)
+        except Exception:
+            # Fallback: iterate and save individually without boolean filter
+            for otp_obj in list(cls.objects.filter(user_id=user.id)):
+                if not otp_obj.is_used:
+                    otp_obj.is_used = True
+                    otp_obj.save()
+        
+        # Generate a 6-digit OTP
+        otp = ''.join(random.choices(string.digits, k=6))
+        
+        # Set expiry time (10 minutes from now)
+        expires_at = timezone.now() + timedelta(minutes=10)
+        
+        # Create and return the OTP object
+        otp_obj = cls.objects.create(user_id=user.id, otp=otp, expires_at=expires_at)
+        return otp_obj
+    
+    def is_valid(self):
+        return not self.is_used and self.expires_at > timezone.now()
+    
+    def __str__(self):
+        return f"OTP for {self.user.email} ({self.otp})"
+
 
 class Book(models.Model):
     title = models.CharField(max_length=255, default="")

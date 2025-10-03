@@ -68,24 +68,6 @@ const Navbar = () => {
             ))}
           </div>
 
-          {/* Search Bar - Hide for Admin Users */}
-          {isAuthenticated && currentUser && !currentUser.is_admin && (
-            <div className="hidden lg:block flex-1 max-w-md mx-8">
-              <form onSubmit={handleSearch}>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="search"
-                    placeholder="Search books, authors..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 transition-all duration-300 focus:shadow-book"
-                  />
-                </div>
-              </form>
-            </div>
-          )}
-
           {/* User Actions */}
           <div className="flex items-center space-x-4">
             {isAuthenticated && currentUser ? (

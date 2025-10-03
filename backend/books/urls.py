@@ -1,10 +1,14 @@
 from django.urls import path
 from .views import *
+from .pandas_utils import upload_books_csv_pandas
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
     path("auth/register/", register_view, name="register"),
     path("auth/login/", login_view, name="login"),
+    path("auth/forgot-password/", forgot_password, name="forgot-password"),
+    path("auth/verify-otp/", verify_otp, name="verify-otp"),
+    path("auth/reset-password/", reset_password, name="reset-password"),
     path("genres/", get_genres, name="get-genres"),
     path("users/preferences/", update_user_preferences, name="update-preferences"),
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
@@ -23,5 +27,6 @@ urlpatterns = [
     path('admin/users/<int:user_id>/delete/', delete_user, name='delete-user'),
     path('admin/books/', get_all_books, name='get-all-books'),
     path('admin/genres/add/', add_genre, name='add-genre'),
-    path('admin/books/import-csv/', upload_books_csv, name='upload-books-csv'),
+    path('admin/books/import-csv/', upload_books_csv_pandas, name='upload-books-csv'),
+    path('books/filter-options/', get_filter_options, name='filter-options'),
 ]
