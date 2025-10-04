@@ -234,7 +234,9 @@ def toggle_save_book(request, book_id):
     except Book.DoesNotExist:
         return Response({"error": "Book not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    if book in user.saved_books.all():
+    # Avoid Djongo ORM .all() and .exists() by fetching saved IDs as a set
+    saved_ids = set(user.saved_books.values_list('id', flat=True))
+    if book.id in saved_ids:
         user.saved_books.remove(book)
         return Response({"message": "Book removed from saved list"}, status=status.HTTP_200_OK)
     else:
