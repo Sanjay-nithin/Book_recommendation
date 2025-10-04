@@ -21,6 +21,9 @@ export const AddBookModal = ({ isOpen, onClose }: AddBookModalProps) => {
     isbn: '',
     description: '',
     cover_image: '',
+    buyNowUrl: '',
+    previewUrl: '',
+    downloadUrl: '',
     publish_date: '',
     rating: '',
     liked_percentage: '',
@@ -74,6 +77,9 @@ export const AddBookModal = ({ isOpen, onClose }: AddBookModalProps) => {
       isbn: '',
       description: '',
       cover_image: '',
+      buyNowUrl: '',
+      previewUrl: '',
+      downloadUrl: '',
       publish_date: '',
       rating: '',
       liked_percentage: '',
@@ -261,6 +267,36 @@ const BookFormContent = ({
           value={formData.cover_image}
           onChange={(e) => setFormData({ ...formData, cover_image: e.target.value })}
           placeholder="https://example.com/book-cover.jpg"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="buyNowUrl">Buy Now URL</Label>
+        <Input
+          id="buyNowUrl"
+          value={formData.buyNowUrl}
+          onChange={(e) => setFormData({ ...formData, buyNowUrl: e.target.value })}
+          placeholder="https://example.com/buy"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="previewUrl">Preview URL</Label>
+        <Input
+          id="previewUrl"
+          value={formData.previewUrl}
+          onChange={(e) => setFormData({ ...formData, previewUrl: e.target.value })}
+          placeholder="https://example.com/preview"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="downloadUrl">Download URL</Label>
+        <Input
+          id="downloadUrl"
+          value={formData.downloadUrl}
+          onChange={(e) => setFormData({ ...formData, downloadUrl: e.target.value })}
+          placeholder="https://example.com/download"
         />
       </div>
 

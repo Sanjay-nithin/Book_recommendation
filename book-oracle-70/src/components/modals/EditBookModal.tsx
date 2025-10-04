@@ -163,6 +163,36 @@ const BookFormContent = ({
       </div>
 
       <div className="grid gap-2">
+        <Label htmlFor="buyNowUrl">Buy Now URL</Label>
+        <Input
+          id="buyNowUrl"
+          value={formData.buyNowUrl}
+          onChange={(e) => setFormData({ ...formData, buyNowUrl: e.target.value })}
+          placeholder="https://example.com/buy"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="previewUrl">Preview URL</Label>
+        <Input
+          id="previewUrl"
+          value={formData.previewUrl}
+          onChange={(e) => setFormData({ ...formData, previewUrl: e.target.value })}
+          placeholder="https://example.com/preview"
+        />
+      </div>
+
+      <div className="grid gap-2">
+        <Label htmlFor="downloadUrl">Download URL</Label>
+        <Input
+          id="downloadUrl"
+          value={formData.downloadUrl}
+          onChange={(e) => setFormData({ ...formData, downloadUrl: e.target.value })}
+          placeholder="https://example.com/download"
+        />
+      </div>
+
+      <div className="grid gap-2">
         <Label htmlFor="description">Description</Label>
         <Textarea
           id="description"
@@ -184,6 +214,9 @@ export const EditBookModal = ({ isOpen, onClose, book }: EditBookModalProps) => 
     isbn: '',
     description: '',
     cover_image: '',
+    buyNowUrl: '',
+    previewUrl: '',
+    downloadUrl: '',
     publish_date: '',
     rating: '',
     liked_percentage: '',
@@ -201,6 +234,9 @@ export const EditBookModal = ({ isOpen, onClose, book }: EditBookModalProps) => 
         isbn: book.isbn,
         description: book.description,
         cover_image: book.cover_image,
+        buyNowUrl: (book as any).buy_now_url || (book as any).buyNowUrl || '',
+        previewUrl: (book as any).preview_url || (book as any).previewUrl || '',
+        downloadUrl: (book as any).download_url || (book as any).downloadUrl || '',
         publish_date: book.publish_date,
         rating: book.rating.toString(),
         liked_percentage: book.liked_percentage.toString(),
@@ -258,6 +294,9 @@ export const EditBookModal = ({ isOpen, onClose, book }: EditBookModalProps) => 
         isbn: book.isbn,
         description: book.description,
         cover_image: book.cover_image,
+        buyNowUrl: (book as any).buy_now_url || (book as any).buyNowUrl || '',
+        previewUrl: (book as any).preview_url || (book as any).previewUrl || '',
+        downloadUrl: (book as any).download_url || (book as any).downloadUrl || '',
         publish_date: book.publish_date,
         rating: book.rating.toString(),
         liked_percentage: book.liked_percentage.toString(),

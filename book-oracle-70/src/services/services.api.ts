@@ -1,6 +1,11 @@
 import { User, Book, LoginRequest, RegisterRequest, DashboardStats } from '@/types/api';
 
-const API_BASE = "https://book-recommendation-g5gx.onrender.com/api";
+// Allow overriding base URL via Vite env (import.meta.env.VITE_API_BASE) and
+// default to http on localhost to avoid browser SSL issues in dev.
+const DEFAULT_LOCAL = "http://127.0.0.1:8000/api";
+const API_BASE = (typeof (import.meta as any) !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE)
+  ? (import.meta as any).env.VITE_API_BASE
+  : DEFAULT_LOCAL;
 
 // 🛠️ Store tokens + user
 function setSession(access: string, refresh: string, user: User) {
@@ -40,6 +45,7 @@ async function refreshToken() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh }),
     });
+
     if (!res.ok) return false;
 
     const data = await res.json();
@@ -57,62 +63,76 @@ async function refreshToken() {
 async function authFetch(url: string, options: RequestInit = {}) {
   let token = localStorage.getItem("access");
 
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.headers || {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  try {
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    });
 
-  if (res.status === 401) {
-    const refreshed = await refreshToken();
-    if (refreshed) {
-      token = localStorage.getItem("access");
-      const retryRes = await fetch(url, {
-        ...options,
-        headers: {
-          ...(options.headers || {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      return handleResponse(retryRes);
+    if (res.status === 401) {
+      const refreshed = await refreshToken();
+      if (refreshed) {
+        token = localStorage.getItem("access");
+        const retryRes = await fetch(url, {
+          ...options,
+          headers: {
+            ...(options.headers || {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        return handleResponse(retryRes);
+      }
     }
-  }
 
-  return handleResponse(res);
+    return handleResponse(res);
+  } catch (err: any) {
+    // Network or protocol error (e.g. SSL issue). Return structured error so
+    // callers don't get Uncaught (in promise) TypeError: Failed to fetch.
+    return { ok: false, error: err?.message || 'Network error' };
+  }
 }
 
 export const apiService = {
   // Auth
   async login(credentials: LoginRequest) {
-    const res = await fetch(`${API_BASE}/auth/login/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(credentials),
-    });
-    const result = await handleResponse(res);
+    try {
+      const res = await fetch(`${API_BASE}/auth/login/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credentials),
+      });
+      const result = await handleResponse(res);
 
     if (result.ok && result.data) {
       const { access, refresh, user } = result.data;
       setSession(access, refresh, user);
     }
-    return result;
+      return result;
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Network error' };
+    }
   },
 
   async register(userData: RegisterRequest) {
-    const res = await fetch(`${API_BASE}/auth/register/`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(userData),
-    });
-    const result = await handleResponse(res);
+    try {
+      const res = await fetch(`${API_BASE}/auth/register/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+      });
+      const result = await handleResponse(res);
 
-    if (result.ok && result.data) {
-      const { access, refresh, user } = result.data;
-      setSession(access, refresh, user);
+      if (result.ok && result.data) {
+        const { access, refresh, user } = result.data;
+        setSession(access, refresh, user);
+      }
+      return result;
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Network error' };
     }
-    return result;
   },
 
   async logout() {
@@ -234,18 +254,43 @@ export const apiService = {
   },
 
   async addBookAdmin(bookData: any) {
+    // Convert frontend camelCase fields to backend snake_case for consistency
+    const payload = {
+      ...bookData,
+      buy_now_url: bookData.buyNowUrl ?? bookData.buy_now_url ?? '',
+      preview_url: bookData.previewUrl ?? bookData.preview_url ?? '',
+      download_url: bookData.downloadUrl ?? bookData.download_url ?? '',
+    };
+
+    // Remove camelCase keys to avoid duplicate/conflicting fields
+    delete (payload as any).buyNowUrl;
+    delete (payload as any).previewUrl;
+    delete (payload as any).downloadUrl;
+
     return authFetch(`${API_BASE}/books/add/`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(bookData),
+      body: JSON.stringify(payload),
     });
   },
 
   async editBookAdmin(bookId: number, bookData: any) {
+    const payload = {
+      ...bookData,
+      buy_now_url: bookData.buyNowUrl ?? bookData.buy_now_url ?? undefined,
+      preview_url: bookData.previewUrl ?? bookData.preview_url ?? undefined,
+      download_url: bookData.downloadUrl ?? bookData.download_url ?? undefined,
+    };
+
+    // remove camelCase to avoid duplicates
+    delete (payload as any).buyNowUrl;
+    delete (payload as any).previewUrl;
+    delete (payload as any).downloadUrl;
+
     return authFetch(`${API_BASE}/books/${bookId}/edit/`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(bookData),
+      body: JSON.stringify(payload),
     });
   },
 
