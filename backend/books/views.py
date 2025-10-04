@@ -314,71 +314,91 @@ def book_detail(request, book_id):
         return Response(serializer.data, status=status.HTTP_200_OK)
     except Book.DoesNotExist:
         return Response({"error": "Book not found"}, status=status.HTTP_404_NOT_FOUND)
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def dashboard_stats(request):
-    from django.db.models import Count, Avg
-    try: 
-        # Get total books - using len() with list() to avoid Djongo count() issues
-        total_books = len(list(Book.objects.all()))
+    try:
+        # Fetch all books and users once
+        books = list(Book.objects.all())
+        users = list(User.objects.all())
 
-        # Get total users
-        total_users = len(list(User.objects.all()))
+        # Total counts
+        total_books = len(books)
+        total_users = len(users)
 
-        # Books added today
+        # Books added today (filter in Python)
         today = datetime.date.today()
-        today_start = datetime.datetime.combine(today, datetime.time.min)
-        today_end = datetime.datetime.combine(today, datetime.time.max)
+        books_added_today = 0
+        for book in books:
+            if hasattr(book, "created_at") and book.created_at:
+                if book.created_at.date() == today:
+                    books_added_today += 1
 
-        books_added_today = len(list(Book.objects.filter(
-            created_at__gte=today_start,
-            created_at__lte=today_end
-        )))
+        # Average rating (filter in Python)
+        ratings = [book.rating for book in books if hasattr(book, "rating") and book.rating is not None]
+        avg_rating = round(sum(ratings) / len(ratings), 1) if ratings else 0
 
-        # Average rating
-        avg_rating = Book.objects.aggregate(avg_rating=Avg('rating'))['avg_rating'] or 0
-
-        # Get most popular genres (books count per genre)
+        # Most popular genres (Python dict counting)
         genre_stats = {}
-        for book in Book.objects.all():
-            for genre in book.genres:
-                genre_stats[genre] = genre_stats.get(genre, 0) + 1
+        for book in books:
+            if hasattr(book, "genres") and book.genres:
+                for genre in book.genres:
+                    genre_stats[genre] = genre_stats.get(genre, 0) + 1
         most_popular_genres = sorted(genre_stats.items(), key=lambda x: x[1], reverse=True)[:5]
         most_popular_genres = [genre for genre, count in most_popular_genres]
 
-        # Recent searches (mock data for now)
+        # Mock recent searches
         recent_searches = ["fantasy", "mystery", "sci-fi", "romance", "thriller"]
 
-        # Top rated books this month
+        # Top rated books this month (filter in Python)
         thirty_days_ago = datetime.date.today() - datetime.timedelta(days=30)
-        
-        # Convert to list immediately to avoid Djongo's issues with LIMIT + COUNT
-        top_rated_books = list(Book.objects.filter(
-            updated_at__gte=thirty_days_ago
-        ).order_by('-rating')[:4])
-        
-        # For now, include recent books as top rated if not enough recent updates
-        if len(top_rated_books) < 4:
-            # Get recent books, excluding any already in top_rated_books
-            top_ids = [book.id for book in top_rated_books]
-            recent_books = list(Book.objects.exclude(id__in=top_ids).order_by('-created_at')[:4 - len(top_rated_books)])
-            top_rated_books = top_rated_books + recent_books
+        recent_books = []
+        for book in books:
+            if hasattr(book, "updated_at") and book.updated_at:
+                if book.updated_at.date() >= thirty_days_ago:
+                    recent_books.append(book)
 
+        # Sort by rating desc, then created_at desc
+        recent_books_sorted = sorted(
+            recent_books, 
+            key=lambda b: (
+                getattr(b, "rating", 0) or 0,
+                getattr(b, "created_at", datetime.datetime.min)
+            ), 
+            reverse=True
+        )
+
+        # Take top 4
+        top_rated_books = recent_books_sorted[:4]
+
+        # Fallback: add latest books if less than 4
+        if len(top_rated_books) < 4:
+            top_ids = [b.id for b in top_rated_books]
+            other_books = [b for b in books if b.id not in top_ids]
+            other_books_sorted = sorted(
+                other_books, 
+                key=lambda b: getattr(b, "created_at", datetime.datetime.min), 
+                reverse=True
+            )
+            top_rated_books = top_rated_books + other_books_sorted[:4 - len(top_rated_books)]
+
+        # Serialize final list
         serializer = BookSerializer(top_rated_books, many=True)
 
         return Response({
             'total_books': total_books,
             'total_users': total_users,
             'books_added_today': books_added_today,
-            'avg_rating': round(avg_rating, 1),
+            'avg_rating': avg_rating,
             'most_popular_genres': most_popular_genres,
             'recent_searches': recent_searches,
             'top_rated_books': serializer.data
         }, status=status.HTTP_200_OK)
+
     except Exception as e:
         logger.exception("Error computing dashboard stats")
         return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_all_users(request):
