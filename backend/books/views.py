@@ -185,8 +185,13 @@ def recommended_books(request):
 
     # If we have absolutely no signals (new user), fall back to top-rated
     if not favorite_genres and not saved_ids:
-        fallback_qs = Book.objects.exclude(id__in=saved_ids).order_by('-rating', '-liked_percentage')
-        books = list(fallback_qs[:limit])
+        fallback_candidates = list(Book.objects.exclude(id__in=saved_ids))
+        fallback_sorted = sorted(
+            fallback_candidates,
+            key=lambda b: ((b.rating or 0.0), (b.liked_percentage or 0.0)),
+            reverse=True
+        )
+        books = fallback_sorted[:limit]
     else:
         # Sort by score desc, break ties by rating
         scored.sort(key=lambda t: (t[0], getattr(t[1], 'rating', 0.0)), reverse=True)
@@ -195,9 +200,13 @@ def recommended_books(request):
         # if too few candidates (tiny dataset), fill with top-rated non-saved
         if len(books) < limit:
             needed = limit - len(books)
-            filler = Book.objects.exclude(id__in=saved_ids.union({bk.id for bk in books})) \
-                                   .order_by('-rating', '-liked_percentage')[:needed]
-            books.extend(list(filler))
+            filler_candidates = list(Book.objects.exclude(id__in=saved_ids.union({bk.id for bk in books})))
+            filler_sorted = sorted(
+                filler_candidates,
+                key=lambda b: ((b.rating or 0.0), (b.liked_percentage or 0.0)),
+                reverse=True
+            )
+            books.extend(filler_sorted[:needed])
 
     serializer = BookSerializer(books, many=True)
     return Response(serializer.data, status=status.HTTP_200_OK)
