@@ -93,8 +93,8 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'djongo',
-        'NAME': 'BookRecommendation',       # MongoDB database name
-        'ENFORCE_SCHEMA': False,      # Optional: allows flexible schema
+        'NAME': 'BookRecommendation',       
+        'ENFORCE_SCHEMA': False,      
         'CLIENT': {
             # For MongoDB Atlas:
             'host': 'mongodb+srv://sanjay-nithin:sanjay220_KID@bookrecommendation.zpdmjmo.mongodb.net/?retryWrites=true&w=majority&appName=BookRecommendation',

@@ -21,7 +21,6 @@ RUN pip install --upgrade pip && pip install -r requirements.txt && pip install 
 
 # Copy project
 COPY . .
-RUN chmod +x /app/entrypoint.sh
 
 # Collect static (harmless if none)
 RUN python manage.py collectstatic --noinput || true
