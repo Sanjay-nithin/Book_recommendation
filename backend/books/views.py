@@ -234,14 +234,24 @@ def toggle_save_book(request, book_id):
     except Book.DoesNotExist:
         return Response({"error": "Book not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    # Avoid Djongo ORM .all() and .exists() by fetching saved IDs as a set
-    saved_ids = set(user.saved_books.values_list('id', flat=True))
-    if book.id in saved_ids:
-        user.saved_books.remove(book)
-        return Response({"message": "Book removed from saved list"}, status=status.HTTP_200_OK)
-    else:
-        user.saved_books.add(book)
-        return Response({"message": "Book added to saved list"}, status=status.HTTP_200_OK)
+    # Avoid Djongo ManyToMany add() bulk_create path (fails in production with SQLDecodeError)
+    through = user.saved_books.through  # implicit join model
+    # Materialize existing saved ids once
+    existing_ids = set(user.saved_books.values_list('id', flat=True))
+    try:
+        if book.id in existing_ids:
+            # Delete join row manually
+            through.objects.filter(user_id=user.id, book_id=book.id).delete()
+            return Response({"message": "Book removed from saved list"}, status=status.HTTP_200_OK)
+        else:
+            # Guard against race: re-check via join table
+            if not through.objects.filter(user_id=user.id, book_id=book.id):
+                # Single row create (avoids bulk_create SQL Djongo can't parse)
+                through.objects.create(user_id=user.id, book_id=book.id)
+            return Response({"message": "Book added to saved list"}, status=status.HTTP_200_OK)
+    except Exception as e:
+        logger.info(f"toggle_save_book fallback due to Djongo error: {e}")
+        return Response({"error": "Failed to toggle saved state"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
