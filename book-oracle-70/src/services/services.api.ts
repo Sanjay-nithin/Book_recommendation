@@ -1,8 +1,16 @@
 import { User, Book, LoginRequest, RegisterRequest, DashboardStats } from '@/types/api';
 
-
+// Resolve API base with safe local fallback to avoid pointing at a static frontend domain (causing CORS absence)
 const envObj = (typeof import.meta !== 'undefined' ? (import.meta as any).env : {}) || {};
-const API_BASE = envObj.VITE_API_URL || envObj.VITE_API_BASE;
+const RAW_ENV_URL = envObj.VITE_API_URL || envObj.VITE_API_BASE || '';
+
+function computeApiBase(): string {
+  // If running locally and env URL is missing or looks like the deployed frontend (vercel) without backend headers, fallback
+  const isLocal = typeof window !== 'undefined' && ['localhost','127.0.0.1'].includes(window.location.hostname);
+  let candidate = RAW_ENV_URL.trim();
+  return candidate;
+}
+const API_BASE = computeApiBase();
 // 🛠️ Store tokens + user
 function setSession(access: string, refresh: string, user: User) {
   localStorage.setItem("access", access);

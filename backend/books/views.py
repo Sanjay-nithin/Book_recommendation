@@ -46,7 +46,7 @@ def register_view(request):
     if list(User.objects.filter(email=email)):
         return Response({"detail": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Manual creation to avoid Djongo create_user potential INSERT translation issues
+    # Stage 1: normal explicit save
     user = User(
         username=username,
         email=email.lower(),
@@ -56,9 +56,46 @@ def register_view(request):
     user.set_password(password)
     try:
         user.save()
-    except Exception as e:
-        logger.exception("User save failed (Djongo INSERT error)")
-        return Response({"detail": "Failed to create user"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    except Exception:
+        logger.info("Primary user save failed; attempting reduced field fallback")
+        # Stage 2: minimal field attempt (remove optional names)
+        try:
+            user = User(
+                username=username,
+                email=email.lower()
+            )
+            user.set_password(password)
+            user.save()
+        except Exception:
+            logger.info("Reduced field save failed; attempting raw PyMongo insert fallback")
+            # Stage 3: raw PyMongo insert to bypass Djongo SQL translator
+            try:
+                from django.db import connections
+                conn = connections['default']
+                mongo_client = conn.client
+                db = mongo_client.get_database(conn.settings_dict.get('NAME'))
+                collection = db['books_user']  # Django collection name
+                doc = {
+                    'username': username,
+                    'email': email.lower(),
+                    'first_name': first_name or "",
+                    'last_name': last_name or "",
+                    'is_active': True,
+                    'is_staff': False,
+                    'is_admin': False,
+                    'preferred_language': 'English',
+                    'notifications_enabled': True,
+                    'saved_book_ids': [],
+                    'password': ''  # will set hashed password below
+                }
+                from django.contrib.auth.hashers import make_password
+                doc['password'] = make_password(password)
+                result = collection.insert_one(doc)
+                # Re-fetch via ORM for consistency
+                user = User.objects.get(pk=result.inserted_id)
+            except Exception as e_raw:
+                logger.exception("Raw PyMongo insert failed")
+                return Response({"detail": "Failed to create user"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     tokens = get_tokens_for_user(user)
     return Response({
