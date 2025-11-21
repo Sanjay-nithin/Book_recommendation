@@ -29,86 +29,106 @@ def get_tokens_for_user(user):
 @api_view(["POST"])
 @permission_classes([AllowAny])
 def register_view(request):
-    data = request.data
-    username = data.get("username")
-    email = data.get("email")
-    password = data.get("password")
-    first_name = data.get("first_name")
-    last_name = data.get("last_name")
+    data = request.data or {}
+    username = (data.get("username") or "").strip()
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password") or ""
+    preferred_language = (data.get("preferred_language") or "").strip() or "English"
 
     if not username or not email or not password:
-        return Response({"detail": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"detail": "Missing required fields"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Using list materialization instead of .exists() for Djongo compatibility
-    if list(User.objects.filter(username=username)):
-        return Response({"detail": "Username already taken"}, status=status.HTTP_400_BAD_REQUEST)
-
-    if list(User.objects.filter(email=email)):
+    if User.objects.filter(email=email).exists():
         return Response({"detail": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Stage 1: normal explicit save
-    user = User(
-        username=username,
-        email=email.lower(),
-        first_name=first_name or "",
-        last_name=last_name or ""
-    )
-    user.set_password(password)
+    if User.objects.filter(username=username).exists():
+        return Response({"detail": "Username already taken"}, status=status.HTTP_400_BAD_REQUEST)
+
+    from django.utils import timezone
+    from django.contrib.auth.hashers import make_password
+    now = timezone.now()
+
+    # Stage 1: normal ORM create
     try:
+        user = User(
+            username=username,
+            email=email,
+            preferred_language=preferred_language,
+            is_active=True,
+            is_staff=False,
+            is_admin=False,
+            notifications_enabled=True,
+            created_at=now,
+            updated_at=now,
+        )
+        user.password = make_password(password)
         user.save()
+        created = True
     except Exception:
-        logger.info("Primary user save failed; attempting reduced field fallback")
-        # Stage 2: minimal field attempt (remove optional names)
+        created = False
+        user = None
+
+    if not created:
+        # Stage 2: minimal ORM create (only mandatory fields)
         try:
             user = User(
                 username=username,
-                email=email.lower()
+                email=email,
+                is_active=True,
             )
-            user.set_password(password)
+            user.password = make_password(password)
             user.save()
+            created = True
         except Exception:
-            logger.info("Reduced field save failed; attempting raw PyMongo insert fallback")
-            # Stage 3: raw PyMongo insert to bypass Djongo SQL translator
-            try:
-                from django.db import connections
-                conn = connections['default']
-                mongo_client = conn.client
-                db = mongo_client.get_database(conn.settings_dict.get('NAME'))
-                collection = db['books_user']  # Django collection name
-                doc = {
-                    'username': username,
-                    'email': email.lower(),
-                    'first_name': first_name or "",
-                    'last_name': last_name or "",
-                    'is_active': True,
-                    'is_staff': False,
-                    'is_admin': False,
-                    'preferred_language': 'English',
-                    'notifications_enabled': True,
-                    'saved_book_ids': [],
-                    'password': ''  # will set hashed password below
-                }
-                from django.contrib.auth.hashers import make_password
-                doc['password'] = make_password(password)
-                result = collection.insert_one(doc)
-                # Re-fetch via ORM for consistency
-                user = User.objects.get(pk=result.inserted_id)
-            except Exception as e_raw:
-                logger.exception("Raw PyMongo insert failed")
-                return Response({"detail": "Failed to create user"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            created = False
+            user = None
+
+    if not created:
+        # Stage 3: raw PyMongo insert via djongo cursor
+        from django.db import connection
+        try:
+            cursor = connection.cursor()
+            db = cursor.db_conn                     # pymongo.database.Database
+            collection = db.get_collection("books_user")
+            doc = {
+                "username": username,
+                "email": email,
+                "password": make_password(password),
+                "is_active": True,
+                "is_staff": False,
+                "is_admin": False,
+                "is_superuser": False,
+                "first_name": "",
+                "last_name": "",
+                "preferred_language": preferred_language,
+                "notifications_enabled": True,
+                "saved_book_ids": [],
+                "last_login": None,
+                "created_at": now,
+                "updated_at": now,
+            }
+            insert_result = collection.insert_one(doc)
+            # Re-fetch via ORM (now that document exists)
+            user = User.objects.filter(email=email).first()
+            if not user:
+                # Construct a transient object if ORM lookup fails
+                class _T(User):
+                    class Meta:
+                        proxy = True
+                user = _T(id=insert_result.inserted_id, username=username, email=email)
+        except Exception as e:
+            return Response({"detail": "Failed to create user"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     tokens = get_tokens_for_user(user)
-    return Response({
-        "user": {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "first_name": user.first_name,
-            "last_name": user.last_name
+    serializer = UserDetailSerializer(user)
+    return Response(
+        {
+            "user": serializer.data,
+            "access": tokens["access"],
+            "refresh": tokens["refresh"],
         },
-        "access": tokens["access"],
-        "refresh": tokens["refresh"],
-    }, status=status.HTTP_201_CREATED)
+        status=status.HTTP_201_CREATED
+    )
 
 # ✅ Login
 @api_view(["POST"])
