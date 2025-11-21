@@ -358,9 +358,22 @@ def explore_books(request):
     published_year_filter = request.GET.get('published_year', '').strip()
     publisher_filter = request.GET.get('publisher', '').strip()
     language_filter = request.GET.get('language', '').strip()
+    
+    # Get exclude_ids parameter (comma-separated book IDs to exclude)
+    exclude_ids_param = request.GET.get('exclude_ids', '').strip()
+    exclude_ids = set()
+    if exclude_ids_param:
+        try:
+            exclude_ids = set(int(id_str.strip()) for id_str in exclude_ids_param.split(',') if id_str.strip())
+        except (ValueError, TypeError):
+            pass
 
     # Start with base queryset
     books_qs = Book.objects.all()
+    
+    # Exclude specified book IDs
+    if exclude_ids:
+        books_qs = books_qs.exclude(id__in=exclude_ids)
 
     # Apply filters if provided
     if author_filter:

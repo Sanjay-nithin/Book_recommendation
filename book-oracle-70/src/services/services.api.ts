@@ -221,8 +221,9 @@ export const apiService = {
     published_year?: string;
     publisher?: string;
     language?: string;
+    exclude_ids?: number[];
   }) {
-    const { offset, limit, author, isbn, genre, published_year, publisher, language } = params;
+    const { offset, limit, author, isbn, genre, published_year, publisher, language, exclude_ids } = params;
     
     let queryString = `?offset=${offset}&limit=${limit}`;
     if (author) queryString += `&author=${encodeURIComponent(author)}`;
@@ -231,6 +232,9 @@ export const apiService = {
     if (published_year) queryString += `&published_year=${encodeURIComponent(published_year)}`;
     if (publisher) queryString += `&publisher=${encodeURIComponent(publisher)}`;
     if (language) queryString += `&language=${encodeURIComponent(language)}`;
+    if (exclude_ids && exclude_ids.length > 0) {
+      queryString += `&exclude_ids=${exclude_ids.join(',')}`;
+    }
     
     return authFetch(`${API_BASE}/books/explore/${queryString}`);
   },

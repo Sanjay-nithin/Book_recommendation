@@ -55,8 +55,16 @@ const UserDashboard = () => {
 
     setIsLoadingMore(true);
     try {
-  // Get 4 more books from the explore endpoint starting after current recommendations
-  const response = await apiService.exploreBooks({ offset: recommendations.length, limit: 4 });
+      // Pass existing book IDs to backend to exclude them from results
+      const existingIds = recommendations.map(b => b.id);
+      
+      // Fetch 4 more unique books (backend will exclude the IDs we already have)
+      const response = await apiService.exploreBooks({ 
+        offset: 0, 
+        limit: 4,
+        exclude_ids: existingIds 
+      });
+      
       if (response.ok && response.data && Array.isArray(response.data.books)) {
         const data: { books: Book[] } = response.data;
         setRecommendations(prevBooks => [...prevBooks, ...data.books]);

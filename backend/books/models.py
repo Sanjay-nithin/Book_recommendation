@@ -5,6 +5,7 @@ from django.contrib.postgres.fields import ArrayField
 import random
 import string
 from datetime import timedelta
+from .fields import DjongoJSONField
 
 
 class UserManager(BaseUserManager):
@@ -49,7 +50,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Legacy ManyToMany (kept for backward compatibility but no longer written to)
     saved_books = models.ManyToManyField("Book", blank=True, related_name="saved_by_users")
     # New resilient list of saved book IDs (avoids Djongo failing INSERT translation)
-    saved_book_ids = models.JSONField(default=list)
+    # Using custom field that handles both Djongo native lists and JSON strings
+    saved_book_ids = DjongoJSONField(default=list)
 
     # User preferences
     preferred_language = models.CharField(max_length=50, default="English")
@@ -114,7 +116,7 @@ class Book(models.Model):
     publish_date = models.DateField(null=True, blank=True)
     rating = models.FloatField(default=0.0)
     liked_percentage = models.FloatField(default=0.0)
-    genres = models.JSONField(default=list)    
+    genres = DjongoJSONField(default=list)    
     language = models.CharField(max_length=50, default="English")
     page_count = models.IntegerField(default=0)
     is_free = models.BooleanField(default=False)

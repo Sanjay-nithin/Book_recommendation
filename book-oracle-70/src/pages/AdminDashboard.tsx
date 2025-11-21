@@ -828,7 +828,6 @@ const AdminDashboard = () => {
                       <label className="text-sm font-medium text-foreground">Default Language</label>
                       <p className="text-muted-foreground">English</p>
                     </div>
-                    <Button variant="outline" size="sm">Update Settings</Button>
                   </CardContent>
                 </Card>
 
@@ -845,7 +844,6 @@ const AdminDashboard = () => {
                       <label className="text-sm font-medium text-foreground">Last Updated</label>
                       <p className="text-muted-foreground">2 hours ago</p>
                     </div>
-                    <Button variant="outline" size="sm">Configure Engine</Button>
                   </CardContent>
                 </Card>
 
