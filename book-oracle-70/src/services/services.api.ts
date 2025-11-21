@@ -1,12 +1,8 @@
 import { User, Book, LoginRequest, RegisterRequest, DashboardStats } from '@/types/api';
 
-// Allow overriding base URL via Vite env (import.meta.env.VITE_API_BASE) and
-// default to http on localhost to avoid browser SSL issues in dev.
-const DEFAULT_LOCAL = "http://127.0.0.1:8000/api";
-const API_BASE = (typeof (import.meta as any) !== 'undefined' && (import.meta as any).env && (import.meta as any).env.VITE_API_BASE)
-  ? (import.meta as any).env.VITE_API_BASE
-  : DEFAULT_LOCAL;
 
+const envObj = (typeof import.meta !== 'undefined' ? (import.meta as any).env : {}) || {};
+const API_BASE = envObj.VITE_API_URL || envObj.VITE_API_BASE;
 // 🛠️ Store tokens + user
 function setSession(access: string, refresh: string, user: User) {
   localStorage.setItem("access", access);

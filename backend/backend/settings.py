@@ -154,12 +154,30 @@ AUTH_USER_MODEL = "books.User"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = True  # Allow any origin (public API). Consider restricting in production.
+CORS_ALLOW_CREDENTIALS = True  # Allow cookies/auth headers when needed
+
+# Explicitly list common headers instead of wildcard to satisfy some strict browsers/proxies
 CORS_ALLOW_HEADERS = [
-    "content-type",
-    "authorization",
+    'accept',
+    'accept-language',
+    'content-language',
+    'content-type',
+    'authorization',
+    'origin',
+    'user-agent',
+    'cache-control',
+    'x-requested-with',
+    'x-csrftoken'
 ]
+
+# Methods (default is sufficient, but we make it explicit for clarity)
+CORS_ALLOW_METHODS = [
+    'GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'
+]
+
+# Expose Authorization so frontend can read it if ever returned
+CORS_EXPOSE_HEADERS = ['Authorization', 'Content-Type']
 
 # Email settings for password reset
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
