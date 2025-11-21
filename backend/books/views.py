@@ -46,16 +46,28 @@ def register_view(request):
     if list(User.objects.filter(email=email)):
         return Response({"detail": "Email already registered"}, status=status.HTTP_400_BAD_REQUEST)
 
-    user = User.objects.create_user(username=username, email=email, password=password, first_name=first_name, last_name=last_name)
-    tokens = get_tokens_for_user(user)
+    # Manual creation to avoid Djongo create_user potential INSERT translation issues
+    user = User(
+        username=username,
+        email=email.lower(),
+        first_name=first_name or "",
+        last_name=last_name or ""
+    )
+    user.set_password(password)
+    try:
+        user.save()
+    except Exception as e:
+        logger.exception("User save failed (Djongo INSERT error)")
+        return Response({"detail": "Failed to create user"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    tokens = get_tokens_for_user(user)
     return Response({
         "user": {
             "id": user.id,
             "username": user.username,
             "email": user.email,
-            "first_name":user.first_name,
-            "last_name":user.last_name
+            "first_name": user.first_name,
+            "last_name": user.last_name
         },
         "access": tokens["access"],
         "refresh": tokens["refresh"],
@@ -129,12 +141,12 @@ def recommended_books(request):
     favorite_genres = set(user.favorite_genres.values_list('name', flat=True))
     preferred_language = (user.preferred_language or '').strip().lower()
 
-    saved_qs = user.saved_books.all()
-    saved_ids = set(saved_qs.values_list('id', flat=True))
-    saved_authors = set(a for a in saved_qs.values_list('author', flat=True) if a)
-    # Union of all genres from saved books
+    # Use JSON list to avoid Djongo ManyToMany SQL issues
+    saved_ids = set(user.saved_book_ids or [])
+    saved_books_list = list(Book.objects.filter(id__in=saved_ids)) if saved_ids else []
+    saved_authors = set(b.author for b in saved_books_list if getattr(b, 'author', None))
     saved_genres_union = set()
-    for sb in saved_qs:
+    for sb in saved_books_list:
         try:
             for g in (sb.genres or []):
                 if isinstance(g, str):
@@ -221,8 +233,12 @@ def current_user_view(request):
 @permission_classes([IsAuthenticated])
 def get_saved_books(request):
     user = request.user
-    books = user.saved_books.all()
-    serializer = BookSerializer(books, many=True)
+    ids = list(user.saved_book_ids or [])
+    books = list(Book.objects.filter(id__in=ids)) if ids else []
+    # Preserve original order of IDs
+    id_index = {bid: i for i, bid in enumerate(ids)}
+    ordered = sorted(books, key=lambda b: id_index.get(b.id, 999999))
+    serializer = BookSerializer(ordered, many=True)
     return Response(serializer.data)
 
 @api_view(["POST"])
@@ -235,23 +251,28 @@ def toggle_save_book(request, book_id):
         return Response({"error": "Book not found"}, status=status.HTTP_404_NOT_FOUND)
 
     # Avoid Djongo ManyToMany add() bulk_create path (fails in production with SQLDecodeError)
-    through = user.saved_books.through  # implicit join model
-    # Materialize existing saved ids once
-    existing_ids = set(user.saved_books.values_list('id', flat=True))
-    try:
-        if book.id in existing_ids:
-            # Delete join row manually
-            through.objects.filter(user_id=user.id, book_id=book.id).delete()
-            return Response({"message": "Book removed from saved list"}, status=status.HTTP_200_OK)
-        else:
-            # Guard against race: re-check via join table
-            if not through.objects.filter(user_id=user.id, book_id=book.id):
-                # Single row create (avoids bulk_create SQL Djongo can't parse)
-                through.objects.create(user_id=user.id, book_id=book.id)
-            return Response({"message": "Book added to saved list"}, status=status.HTTP_200_OK)
-    except Exception as e:
-        logger.info(f"toggle_save_book fallback due to Djongo error: {e}")
-        return Response({"error": "Failed to toggle saved state"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    # Migrate legacy ManyToMany data into JSON list if needed
+    if not user.saved_book_ids:
+        try:
+            legacy_ids = list(user.saved_books.values_list('id', flat=True))
+            if legacy_ids:
+                user.saved_book_ids = legacy_ids
+                user.save(update_fields=['saved_book_ids'])
+        except Exception:
+            pass
+
+    saved_list = list(user.saved_book_ids or [])
+    if book.id in saved_list:
+        saved_list = [bid for bid in saved_list if bid != book.id]
+        user.saved_book_ids = saved_list
+        user.save(update_fields=['saved_book_ids'])
+        return Response({"message": "Book removed from saved list", "saved_books": saved_list}, status=status.HTTP_200_OK)
+    else:
+        saved_list.append(book.id)
+        # ensure uniqueness just in case
+        user.saved_book_ids = list(dict.fromkeys(saved_list))
+        user.save(update_fields=['saved_book_ids'])
+        return Response({"message": "Book added to saved list", "saved_books": user.saved_book_ids}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])

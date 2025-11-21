@@ -35,7 +35,17 @@ class UserDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_saved_books(self, obj):
-        return list(obj.saved_books.values_list("id", flat=True))
+        # Prefer JSON list; fall back to ManyToMany if empty (one-time migration helper)
+        if obj.saved_book_ids:
+            return list(obj.saved_book_ids)
+        try:
+            legacy_ids = list(obj.saved_books.values_list("id", flat=True))
+            if legacy_ids and not obj.saved_book_ids:
+                obj.saved_book_ids = legacy_ids
+                obj.save(update_fields=["saved_book_ids"])
+            return legacy_ids
+        except Exception:
+            return []
 
 class UserGenrePreferenceSerializer(serializers.Serializer):
     genres = serializers.ListField(

@@ -46,7 +46,10 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Preferences / relations
     favorite_genres = models.ManyToManyField(Genre, blank=True, related_name="users")
+    # Legacy ManyToMany (kept for backward compatibility but no longer written to)
     saved_books = models.ManyToManyField("Book", blank=True, related_name="saved_by_users")
+    # New resilient list of saved book IDs (avoids Djongo failing INSERT translation)
+    saved_book_ids = models.JSONField(default=list)
 
     # User preferences
     preferred_language = models.CharField(max_length=50, default="English")
