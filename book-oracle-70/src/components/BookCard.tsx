@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 interface BookCardProps {
   book: Book;
   showSaveButton?: boolean;
-  onSaveToggle?: () => void;
+  onSaveToggle?: (book: Book, wasAdded: boolean) => void;
 }
 
 const BookCard = ({ book, showSaveButton = true, onSaveToggle }: BookCardProps) => {
@@ -33,22 +33,54 @@ const BookCard = ({ book, showSaveButton = true, onSaveToggle }: BookCardProps) 
 
     if (!currentUser) return;
 
+    // Optimistic UI: immediately toggle state before API call
+    const previousState = isBookSaved;
+    const wasAdded = !previousState; // true if adding, false if removing
+    setIsSaved(wasAdded);
+    
+    // Fire callback immediately with book data so parent can update its list instantly
+    if (onSaveToggle) onSaveToggle(book, wasAdded);
+
+    // Show instant feedback toast
+    toast({
+      title: wasAdded ? 'Added to saved' : 'Removed from saved',
+      description: wasAdded
+        ? `"${book.title}" was added to your saved books.`
+        : `"${book.title}" was removed from your saved books.`,
+    });
+
+    // Background API call
     setIsLoading(true);
     try {
       const res = await apiService.toggleBookSave(book.id);
       if ('error' in res) {
-        toast({ title: 'Error', description: res.error, variant: 'destructive' });
-      } else {
-        await apiService.updateCurrentUser();
-        setIsSaved(!isBookSaved);
-        if (onSaveToggle) onSaveToggle();
-        toast({
-          title: isBookSaved ? 'Removed from saved' : 'Added to saved',
-          description: isBookSaved
-            ? `"${book.title}" was removed from your saved books."`
-            : `"${book.title}" was added to your saved books."`,
+        // Revert optimistic update on error
+        setIsSaved(previousState);
+        if (onSaveToggle) onSaveToggle(book, previousState); // revert parent state
+        toast({ 
+          title: 'Error', 
+          description: res.error || 'Failed to save changes', 
+          variant: 'destructive' 
         });
+      } else {
+        // Success: update user session with new saved_books list from response
+        if (res.data?.saved_books) {
+          const user = apiService.getCurrentUser();
+          if (user) {
+            user.saved_books = res.data.saved_books;
+            localStorage.setItem('user', JSON.stringify(user));
+          }
+        }
       }
+    } catch (err) {
+      // Revert on network error
+      setIsSaved(previousState);
+      if (onSaveToggle) onSaveToggle(book, previousState);
+      toast({ 
+        title: 'Network error', 
+        description: 'Unable to save changes', 
+        variant: 'destructive' 
+      });
     } finally {
       setIsLoading(false);
     }

@@ -22,21 +22,27 @@ const UserDashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      const user = await apiService.getCurrentUserDetails();
-      if (user && 'ok' in user) {
-        if (user.ok && user.data) setCurrentUser(user.data);
+      // Load from localStorage immediately for instant render
+      const cachedUser = apiService.getCurrentUser();
+      if (cachedUser) setCurrentUser(cachedUser);
+
+      // Parallel fetch (don't wait for user before getting books)
+      const [userRes, recsRes, savedRes] = await Promise.all([
+        apiService.getCurrentUserDetails(),
+        apiService.getRecommendedBooks(),
+        apiService.getSavedBooks(),
+      ]);
+
+      if (userRes && 'ok' in userRes && userRes.ok && userRes.data) {
+        setCurrentUser(userRes.data);
       }
 
-      // Load recommendations
-      const recs = await apiService.getRecommendedBooks();
-      if (recs.ok && recs.data) {
-        setRecommendations(Array.isArray(recs.data) ? recs.data : []);
+      if (recsRes.ok && recsRes.data) {
+        setRecommendations(Array.isArray(recsRes.data) ? recsRes.data : []);
       } else {
         setRecommendations([]);
       }
 
-      // Load actual saved books
-      const savedRes = await apiService.getSavedBooks();
       if (savedRes.ok && savedRes.data) setSavedBooks(savedRes.data);
     } catch (error) {
     } finally {
@@ -61,18 +67,13 @@ const UserDashboard = () => {
     }
   };
 
-  const refreshUserData = async () => {
-    try {
-      const user = await apiService.getCurrentUserDetails();
-      if ('data' in user) {
-        setCurrentUser(user.data);
-      }
-      // Also refresh saved books
-      const savedRes = await apiService.getSavedBooks();
-      if ('data' in savedRes) {
-        setSavedBooks(savedRes.data);
-      }
-    } catch (error) {}
+  const handleBookToggle = (book: Book, wasAdded: boolean) => {
+    // Instant local state update: add or remove book from savedBooks array
+    if (wasAdded) {
+      setSavedBooks(prev => [...prev, book]);
+    } else {
+      setSavedBooks(prev => prev.filter(b => b.id !== book.id));
+    }
   };
 
   if (isLoading) {
@@ -181,7 +182,7 @@ const UserDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {recommendations.map((book, index) => (
                   <div key={book.id} className="animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
-                    <BookCard book={book} onSaveToggle={refreshUserData} />
+                    <BookCard book={book} onSaveToggle={handleBookToggle} />
                   </div>
                 ))}
               </div>
@@ -228,7 +229,7 @@ const UserDashboard = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   {savedBooks.map((book, index) => (
                     <div key={book.id} className="animate-slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
-                      <BookCard book={book} onSaveToggle={refreshUserData} />
+                      <BookCard book={book} onSaveToggle={handleBookToggle} />
                     </div>
                   ))}
                 </div>
